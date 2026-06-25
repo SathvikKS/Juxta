@@ -5,12 +5,12 @@ import {
   Clipboard,
   FileText,
   ArrowRight,
-  Play,
+  ArrowLeft,
   Sparkles,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Kbd } from "@/components/ui/kbd"
 import { SettingsPanel, DEFAULT_SETTINGS } from "./SettingsPanel"
 import type { DiffSettings } from "./SettingsPanel"
 import { StatsBar } from "./StatsBar"
@@ -118,6 +118,34 @@ export default function DiffChecker() {
       settings,
     })
   }, [originalText, changedText, settings])
+
+  // Detect if macOS for keyboard shortcut display
+  const isMac = React.useMemo(() => {
+    if (typeof window === "undefined") return false
+    return /Mac|iPod|iPhone|iPad/.test(navigator.userAgent)
+  }, [])
+
+  // Keyboard shortcut: Cmd+Enter/Ctrl+Enter to run compare, Escape to go back
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (settings.autoCompare === -1) {
+        if (
+          activeTab === "edit" &&
+          (e.metaKey || e.ctrlKey) &&
+          e.key === "Enter"
+        ) {
+          e.preventDefault()
+          handleCompare()
+          setActiveTab("diff")
+        } else if (activeTab === "diff" && e.key === "Escape") {
+          e.preventDefault()
+          setActiveTab("edit")
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [settings.autoCompare, activeTab, handleCompare])
 
   // Auto-compare logic: when inputs/settings change, update comparedState if autoCompare is on (>= 0)
   React.useEffect(() => {
@@ -422,19 +450,7 @@ export default function DiffChecker() {
             Clear
           </Button>
 
-          {settings.autoCompare === -1 && (
-            <Button
-              size="sm"
-              onClick={() => {
-                handleCompare()
-                setActiveTab("diff")
-              }}
-              className="cursor-pointer gap-2 font-semibold shadow-xs"
-            >
-              <Play className="h-4 w-4 fill-current" />
-              Run Compare
-            </Button>
-          )}
+
         </div>
       </div>
 
@@ -483,117 +499,111 @@ export default function DiffChecker() {
           </div>
         </div>
       ) : (
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="flex w-full flex-1 flex-col gap-4"
-        >
-          <div className="flex flex-col items-start justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 p-1.5 sm:flex-row sm:items-center">
-            <TabsList className="gap-1 border-0 bg-transparent p-0">
-              <TabsTrigger
-                value="edit"
-                className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs"
-              >
-                1. Input Text
-              </TabsTrigger>
-              <TabsTrigger
-                value="diff"
-                className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs"
-              >
-                2. Visual Diff
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent
-            value="edit"
-            className="flex min-h-0 flex-1 flex-col gap-4 focus-visible:outline-none"
+        <div className="relative w-full flex-1 overflow-hidden">
+          <div
+            className="flex h-full w-[200%] transition-transform duration-300 ease-in-out"
+            style={{
+              transform: activeTab === "diff" ? "translateX(-50%)" : "translateX(0%)",
+            }}
           >
-            {renderInputPanes(false)}
-
-            {/* Compare Button */}
-            <div className="flex items-center justify-end gap-3">
-              <Button
-                variant="ghost"
-                onClick={handleSwap}
-                className="cursor-pointer gap-2 lg:hidden"
-              >
-                <ArrowLeftRight className="h-4 w-4" /> Swap Texts
-              </Button>
-              <Button
-                size="lg"
-                onClick={() => {
-                  handleCompare()
-                  setActiveTab("diff")
-                }}
-                className="cursor-pointer gap-2 px-8 font-semibold shadow-md"
-              >
-                <span>Visualize Changes</span>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </TabsContent>
-
-          {/* Diff Output Pane */}
-          <TabsContent
-            value="diff"
-            className="flex min-h-0 flex-1 flex-col gap-4 focus-visible:outline-none"
-          >
-            {/* Stats Bar */}
-            <StatsBar
-              similarity={similarity}
-              addedCount={addedCount}
-              removedCount={removedCount}
-              totalLines={totalLines}
+            {/* Slide 1: Editor */}
+            <div
+              className="flex h-full w-1/2 flex-col gap-4 px-1"
+              inert={activeTab !== "edit"}
             >
-              <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
+              {renderInputPanes(false)}
+
+              {/* Compare Button */}
+              <div className="flex items-center justify-end gap-3">
                 <Button
-                  variant={viewMode === "split" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                  onClick={() => setViewMode("split")}
+                  variant="ghost"
+                  onClick={handleSwap}
+                  className="cursor-pointer gap-2 lg:hidden"
                 >
-                  Split View
+                  <ArrowLeftRight className="h-4 w-4" /> Swap Texts
                 </Button>
                 <Button
-                  variant={viewMode === "unified" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                  onClick={() => setViewMode("unified")}
+                  size="lg"
+                  onClick={() => {
+                    handleCompare()
+                    setActiveTab("diff")
+                  }}
+                  className="cursor-pointer gap-2 px-8 font-semibold shadow-md"
                 >
-                  Unified View
+                  <span>Visualize Changes</span>
+                  <Kbd className="border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground/90">
+                    {isMac ? "⌘" : "Ctrl"}↵
+                  </Kbd>
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>
-            </StatsBar>
-
-            {/* Interactive Viewer */}
-            <DiffViewer
-              alignedLines={alignedLines}
-              unifiedLines={unifiedLines}
-              viewMode={viewMode}
-              showLineNumbers={settings.showLineNumbers}
-              wrapLines={settings.wrapLines}
-              scrollLock={settings.scrollLock}
-            />
-
-            {/* Back button */}
-            <div className="mt-2 flex items-center justify-between">
-              <Button
-                variant="outline"
-                onClick={() => setActiveTab("edit")}
-                className="cursor-pointer gap-2"
-              >
-                <ArrowRight className="h-4 w-4 rotate-180" />
-                Edit Text
-              </Button>
-
-              <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-                <Sparkles className="h-3 w-3 animate-pulse text-primary" />
-                Compares client-side only. Data never leaves your device.
-              </span>
             </div>
-          </TabsContent>
-        </Tabs>
+
+            {/* Slide 2: Diff Visualizer */}
+            <div
+              className="flex h-full w-1/2 flex-col gap-4 px-1"
+              inert={activeTab !== "diff"}
+            >
+              {/* Header / Meta Controls for visual diff */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shrink-0">
+                <Button
+                  size="lg"
+                  onClick={() => setActiveTab("edit")}
+                  className="cursor-pointer gap-2 px-8 font-semibold shadow-md"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back to Editor</span>
+                  <Kbd className="border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground/90">
+                    Esc
+                  </Kbd>
+                </Button>
+
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1.5 shadow-xs">
+                  <Button
+                    variant={viewMode === "split" ? "secondary" : "ghost"}
+                    className="h-8 cursor-pointer rounded-md px-3 text-xs font-semibold"
+                    onClick={() => setViewMode("split")}
+                  >
+                    Split View
+                  </Button>
+                  <Button
+                    variant={viewMode === "unified" ? "secondary" : "ghost"}
+                    className="h-8 cursor-pointer rounded-md px-3 text-xs font-semibold"
+                    onClick={() => setViewMode("unified")}
+                  >
+                    Unified View
+                  </Button>
+                </div>
+              </div>
+
+              {/* Stats Bar */}
+              <StatsBar
+                similarity={similarity}
+                addedCount={addedCount}
+                removedCount={removedCount}
+                totalLines={totalLines}
+              />
+
+              {/* Interactive Viewer */}
+              <DiffViewer
+                alignedLines={alignedLines}
+                unifiedLines={unifiedLines}
+                viewMode={viewMode}
+                showLineNumbers={settings.showLineNumbers}
+                wrapLines={settings.wrapLines}
+                scrollLock={settings.scrollLock}
+              />
+
+              {/* Footer Info */}
+              <div className="mt-1 flex items-center justify-end shrink-0">
+                <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                  <Sparkles className="h-3 w-3 animate-pulse text-primary" />
+                  Compares client-side only. Data never leaves your device.
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
