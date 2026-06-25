@@ -36,7 +36,7 @@ export interface DiffSettings {
   trimWhitespace: boolean
   lineEndingSensitive: boolean
   inlineDiffMode: "char" | "word" | "none"
-  autoCompare: boolean
+  autoCompare: number
   showLineNumbers: boolean
   wrapLines: boolean
   scrollLock: boolean
@@ -48,7 +48,7 @@ export const DEFAULT_SETTINGS: DiffSettings = {
   trimWhitespace: false,
   lineEndingSensitive: false,
   inlineDiffMode: "char",
-  autoCompare: true,
+  autoCompare: -1,
   showLineNumbers: true,
   wrapLines: true,
   scrollLock: true,
@@ -455,7 +455,7 @@ export function SettingsPanel({
                           htmlFor="autoCompare"
                           className="cursor-pointer text-sm font-medium"
                         >
-                          Auto-Compare
+                          Auto-Compare (ms)
                         </Label>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -463,23 +463,26 @@ export function SettingsPanel({
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="max-w-[240px] text-xs">
-                              When enabled, the comparison updates immediately
-                              as you type (debounced). When disabled, you must
-                              click the Compare button.
+                              Set to -1 to disable auto-compare. Set to 0 for instant comparison. Any value greater than 0 defines the debounce delay in milliseconds.
                             </p>
                           </TooltipContent>
                         </Tooltip>
                       </div>
                       <span className="text-xs text-muted-foreground">
-                        Run diff automatically on input change
+                        -1: manual, 0: instant, &gt;0: debounce delay
                       </span>
                     </div>
-                    <Switch
+                    <input
                       id="autoCompare"
-                      checked={settings.autoCompare}
-                      onCheckedChange={(val) =>
-                        updateSetting("autoCompare", val)
-                      }
+                      type="number"
+                      min="-1"
+                      step="50"
+                      value={settings.autoCompare}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10)
+                        updateSetting("autoCompare", isNaN(val) ? -1 : val)
+                      }}
+                      className="w-24 rounded-md border border-input bg-transparent px-3 py-1.5 text-right font-mono text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     />
                   </div>
                 </TabsContent>

@@ -118,19 +118,41 @@ export default function DiffChecker() {
     })
   }, [originalText, changedText, settings])
 
-  // Auto-compare logic: when inputs/settings change, update comparedState if autoCompare is on
+  // Auto-compare logic: when inputs/settings change, update comparedState if autoCompare is on (>= 0)
   React.useEffect(() => {
-    if (settings.autoCompare) {
-      const timer = setTimeout(() => {
-        setComparedState({
-          original: originalText,
-          changed: changedText,
-          settings,
-        })
-      }, 250)
-      return () => clearTimeout(timer)
+    const delay = settings.autoCompare
+    if (delay >= 0) {
+      if (delay === 0) {
+        const timer = setTimeout(() => {
+          setComparedState({
+            original: originalText,
+            changed: changedText,
+            settings,
+          })
+        }, 0)
+        return () => clearTimeout(timer)
+      } else {
+        const timer = setTimeout(() => {
+          setComparedState({
+            original: originalText,
+            changed: changedText,
+            settings,
+          })
+        }, delay)
+        return () => clearTimeout(timer)
+      }
     }
   }, [originalText, changedText, settings])
+
+  // Reset activeTab to "edit" when autoCompare is disabled (-1)
+  React.useEffect(() => {
+    if (settings.autoCompare === -1) {
+      const timer = setTimeout(() => {
+        setActiveTab("edit")
+      }, 0)
+      return () => clearTimeout(timer)
+    }
+  }, [settings.autoCompare])
 
   // Compute actual visual diffs based strictly on comparedState using useMemo
   const { alignedLines, unifiedLines, similarity } = React.useMemo(() => {
@@ -243,6 +265,120 @@ export default function DiffChecker() {
     }
   }
 
+  // Render Input Card Panes
+  const renderInputPanes = (isCompact: boolean = false) => {
+    return (
+      <div className={`grid min-h-0 ${isCompact ? "h-[360px] lg:h-[240px] shrink-0" : "flex-1"} grid-cols-1 items-stretch gap-5 lg:grid-cols-2 relative`}>
+        {/* Left Input Pane: Original */}
+        <Card
+          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs"
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, "original")}
+        >
+          <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium shrink-0">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <FileText className="h-4 w-4" />
+              <span>Original Text</span>
+              {originalFile && (
+                <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">
+                  {originalFile.name} ({formatFileSize(originalFile.size)})
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="mr-1 text-muted-foreground">
+                {getLineCount(originalText)} lines
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 cursor-pointer rounded-md"
+                onClick={() => handlePaste("original")}
+                title="Paste from clipboard"
+              >
+                <Clipboard className="h-3.5 w-3.5" />
+              </Button>
+              <label className="flex h-7 cursor-pointer items-center justify-center rounded-md border border-border/60 px-2.5 text-[10px] font-semibold text-muted-foreground hover:bg-muted">
+                Upload
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => handleFileUpload(e, "original")}
+                />
+              </label>
+            </div>
+          </div>
+          <textarea
+            className="min-h-0 flex-1 resize-none overflow-y-auto border-0 bg-background/50 p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 focus-visible:outline-none"
+            placeholder="Paste the original content here or drag-and-drop a text file..."
+            value={originalText}
+            onChange={(e) => setOriginalText(e.target.value)}
+          />
+        </Card>
+
+        {/* Swap Button container in-between */}
+        <div className="absolute top-1/2 left-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 animate-pulse cursor-pointer rounded-full border border-border bg-background shadow-md hover:animate-none hover:bg-muted"
+            onClick={handleSwap}
+            title="Swap contents"
+          >
+            <ArrowLeftRight className="h-4 w-4 text-primary" />
+          </Button>
+        </div>
+
+        {/* Right Input Pane: Changed */}
+        <Card
+          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs"
+          onDragOver={handleDragOver}
+          onDrop={(e) => handleDrop(e, "changed")}
+        >
+          <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium shrink-0">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <FileText className="h-4 w-4" />
+              <span>Changed Text</span>
+              {changedFile && (
+                <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">
+                  {changedFile.name} ({formatFileSize(changedFile.size)})
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="mr-1 text-muted-foreground">
+                {getLineCount(changedText)} lines
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 cursor-pointer rounded-md"
+                onClick={() => handlePaste("changed")}
+                title="Paste from clipboard"
+              >
+                <Clipboard className="h-3.5 w-3.5" />
+              </Button>
+              <label className="flex h-7 cursor-pointer items-center justify-center rounded-md border border-border/60 px-2.5 text-[10px] font-semibold text-muted-foreground hover:bg-muted">
+                Upload
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => handleFileUpload(e, "changed")}
+                />
+              </label>
+            </div>
+          </div>
+          <textarea
+            className="min-h-0 flex-1 resize-none overflow-y-auto border-0 bg-background/50 p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 focus-visible:outline-none"
+            placeholder="Paste the changed content here or drag-and-drop a text file..."
+            value={changedText}
+            onChange={(e) => setChangedText(e.target.value)}
+          />
+        </Card>
+      </div>
+    )
+  }
+
   // Stats calculation
   const addedCount = unifiedLines.filter((l) => l.type === "added").length
   const removedCount = unifiedLines.filter((l) => l.type === "removed").length
@@ -283,244 +419,192 @@ export default function DiffChecker() {
             Clear
           </Button>
 
-          <Button
-            size="sm"
-            onClick={() => {
-              handleCompare()
-              setActiveTab("diff")
-            }}
-            className="cursor-pointer gap-2 font-semibold shadow-xs"
-          >
-            <Play className="h-4 w-4 fill-current" />
-            Run Compare
-          </Button>
-        </div>
-      </div>
-
-      {/* Tabs Layout */}
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="flex w-full flex-1 flex-col gap-4"
-      >
-        <div className="flex flex-col items-start justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 p-1.5 sm:flex-row sm:items-center">
-          <TabsList className="gap-1 border-0 bg-transparent p-0">
-            <TabsTrigger
-              value="edit"
-              className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs"
-            >
-              1. Input Text
-            </TabsTrigger>
-            <TabsTrigger
-              value="diff"
-              className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs"
-            >
-              2. Visual Diff
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Sub-controls when in Visual Diff mode */}
-          {activeTab === "diff" && (
-            <div className="flex items-center gap-2 self-end sm:self-auto">
-              <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
-                <Button
-                  variant={viewMode === "split" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                  onClick={() => setViewMode("split")}
-                >
-                  Split View
-                </Button>
-                <Button
-                  variant={viewMode === "unified" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                  onClick={() => setViewMode("unified")}
-                >
-                  Unified View
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <TabsContent
-          value="edit"
-          className="flex min-h-0 flex-1 flex-col gap-4 focus-visible:outline-none"
-        >
-          <div className="grid min-h-0 flex-1 grid-cols-1 items-stretch gap-5 lg:grid-cols-2">
-            {/* Left Input Pane: Original */}
-            <Card
-              className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs"
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, "original")}
-            >
-              <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <FileText className="h-4 w-4" />
-                  <span>Original Text</span>
-                  {originalFile && (
-                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">
-                      {originalFile.name} ({formatFileSize(originalFile.size)})
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="mr-1 text-muted-foreground">
-                    {getLineCount(originalText)} lines
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 cursor-pointer rounded-md"
-                    onClick={() => handlePaste("original")}
-                    title="Paste from clipboard"
-                  >
-                    <Clipboard className="h-3.5 w-3.5" />
-                  </Button>
-                  <label className="flex h-7 cursor-pointer items-center justify-center rounded-md border border-border/60 px-2.5 text-[10px] font-semibold text-muted-foreground hover:bg-muted">
-                    Upload
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e, "original")}
-                    />
-                  </label>
-                </div>
-              </div>
-              <textarea
-                className="min-h-0 flex-1 resize-none overflow-y-auto border-0 bg-background/50 p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 focus-visible:outline-none"
-                placeholder="Paste the original content here or drag-and-drop a text file..."
-                value={originalText}
-                onChange={(e) => setOriginalText(e.target.value)}
-              />
-            </Card>
-
-            {/* Swap Button container in-between */}
-            <div className="absolute top-1/2 left-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-10 w-10 animate-pulse cursor-pointer rounded-full border border-border bg-background shadow-md hover:animate-none hover:bg-muted"
-                onClick={handleSwap}
-                title="Swap contents"
-              >
-                <ArrowLeftRight className="h-4 w-4 text-primary" />
-              </Button>
-            </div>
-
-            {/* Right Input Pane: Changed */}
-            <Card
-              className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs"
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, "changed")}
-            >
-              <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <FileText className="h-4 w-4" />
-                  <span>Changed Text</span>
-                  {changedFile && (
-                    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">
-                      {changedFile.name} ({formatFileSize(changedFile.size)})
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="mr-1 text-muted-foreground">
-                    {getLineCount(changedText)} lines
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 cursor-pointer rounded-md"
-                    onClick={() => handlePaste("changed")}
-                    title="Paste from clipboard"
-                  >
-                    <Clipboard className="h-3.5 w-3.5" />
-                  </Button>
-                  <label className="flex h-7 cursor-pointer items-center justify-center rounded-md border border-border/60 px-2.5 text-[10px] font-semibold text-muted-foreground hover:bg-muted">
-                    Upload
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e, "changed")}
-                    />
-                  </label>
-                </div>
-              </div>
-              <textarea
-                className="min-h-0 flex-1 resize-none overflow-y-auto border-0 bg-background/50 p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 focus-visible:outline-none"
-                placeholder="Paste the changed content here or drag-and-drop a text file..."
-                value={changedText}
-                onChange={(e) => setChangedText(e.target.value)}
-              />
-            </Card>
-          </div>
-
-          {/* Compare Button */}
-          <div className="flex items-center justify-end gap-3">
+          {settings.autoCompare === -1 && (
             <Button
-              variant="ghost"
-              onClick={handleSwap}
-              className="cursor-pointer gap-2 lg:hidden"
-            >
-              <ArrowLeftRight className="h-4 w-4" /> Swap Texts
-            </Button>
-            <Button
-              size="lg"
+              size="sm"
               onClick={() => {
                 handleCompare()
                 setActiveTab("diff")
               }}
-              className="cursor-pointer gap-2 px-8 font-semibold shadow-md"
+              className="cursor-pointer gap-2 font-semibold shadow-xs"
             >
-              <span>Visualize Changes</span>
-              <ArrowRight className="h-4 w-4" />
+              <Play className="h-4 w-4 fill-current" />
+              Run Compare
             </Button>
-          </div>
-        </TabsContent>
+          )}
+        </div>
+      </div>
 
-        {/* Diff Output Pane */}
-        <TabsContent
-          value="diff"
-          className="flex min-h-0 flex-1 flex-col gap-4 focus-visible:outline-none"
+      {/* Tabs / Live Layout */}
+      {settings.autoCompare >= 0 ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-5">
+          {renderInputPanes(true)}
+          
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            {/* Sync scroll controls / view mode switcher */}
+            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/40 p-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 px-2">
+                <span className="text-xs font-semibold text-muted-foreground">Live Visual Diff</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
+                  <Button
+                    variant={viewMode === "split" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+                    onClick={() => setViewMode("split")}
+                  >
+                    Split View
+                  </Button>
+                  <Button
+                    variant={viewMode === "unified" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+                    onClick={() => setViewMode("unified")}
+                  >
+                    Unified View
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats Bar */}
+            <StatsBar
+              similarity={similarity}
+              addedCount={addedCount}
+              removedCount={removedCount}
+              totalLines={totalLines}
+            />
+
+            {/* Interactive Viewer */}
+            <DiffViewer
+              alignedLines={alignedLines}
+              unifiedLines={unifiedLines}
+              viewMode={viewMode}
+              showLineNumbers={settings.showLineNumbers}
+              wrapLines={settings.wrapLines}
+              scrollLock={settings.scrollLock}
+            />
+          </div>
+        </div>
+      ) : (
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="flex w-full flex-1 flex-col gap-4"
         >
-          {/* Stats Bar */}
-          <StatsBar
-            similarity={similarity}
-            addedCount={addedCount}
-            removedCount={removedCount}
-            totalLines={totalLines}
-          />
+          <div className="flex flex-col items-start justify-between gap-3 rounded-xl border border-border/60 bg-muted/40 p-1.5 sm:flex-row sm:items-center">
+            <TabsList className="gap-1 border-0 bg-transparent p-0">
+              <TabsTrigger
+                value="edit"
+                className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs"
+              >
+                1. Input Text
+              </TabsTrigger>
+              <TabsTrigger
+                value="diff"
+                className="cursor-pointer rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-background data-[state=active]:shadow-xs"
+              >
+                2. Visual Diff
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Interactive Viewer */}
-          <DiffViewer
-            alignedLines={alignedLines}
-            unifiedLines={unifiedLines}
-            viewMode={viewMode}
-            showLineNumbers={settings.showLineNumbers}
-            wrapLines={settings.wrapLines}
-            scrollLock={settings.scrollLock}
-          />
-
-          {/* Back button */}
-          <div className="mt-2 flex items-center justify-between">
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab("edit")}
-              className="cursor-pointer gap-2"
-            >
-              <ArrowRight className="h-4 w-4 rotate-180" />
-              Edit Text
-            </Button>
-
-            <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-              <Sparkles className="h-3 w-3 animate-pulse text-primary" />
-              Compares client-side only. Data never leaves your device.
-            </span>
+            {/* Sub-controls when in Visual Diff mode */}
+            {activeTab === "diff" && (
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
+                  <Button
+                    variant={viewMode === "split" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+                    onClick={() => setViewMode("split")}
+                  >
+                    Split View
+                  </Button>
+                  <Button
+                    variant={viewMode === "unified" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+                    onClick={() => setViewMode("unified")}
+                  >
+                    Unified View
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
-        </TabsContent>
-      </Tabs>
+
+          <TabsContent
+            value="edit"
+            className="flex min-h-0 flex-1 flex-col gap-4 focus-visible:outline-none"
+          >
+            {renderInputPanes(false)}
+
+            {/* Compare Button */}
+            <div className="flex items-center justify-end gap-3">
+              <Button
+                variant="ghost"
+                onClick={handleSwap}
+                className="cursor-pointer gap-2 lg:hidden"
+              >
+                <ArrowLeftRight className="h-4 w-4" /> Swap Texts
+              </Button>
+              <Button
+                size="lg"
+                onClick={() => {
+                  handleCompare()
+                  setActiveTab("diff")
+                }}
+                className="cursor-pointer gap-2 px-8 font-semibold shadow-md"
+              >
+                <span>Visualize Changes</span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </TabsContent>
+
+          {/* Diff Output Pane */}
+          <TabsContent
+            value="diff"
+            className="flex min-h-0 flex-1 flex-col gap-4 focus-visible:outline-none"
+          >
+            {/* Stats Bar */}
+            <StatsBar
+              similarity={similarity}
+              addedCount={addedCount}
+              removedCount={removedCount}
+              totalLines={totalLines}
+            />
+
+            {/* Interactive Viewer */}
+            <DiffViewer
+              alignedLines={alignedLines}
+              unifiedLines={unifiedLines}
+              viewMode={viewMode}
+              showLineNumbers={settings.showLineNumbers}
+              wrapLines={settings.wrapLines}
+              scrollLock={settings.scrollLock}
+            />
+
+            {/* Back button */}
+            <div className="mt-2 flex items-center justify-between">
+              <Button
+                variant="outline"
+                onClick={() => setActiveTab("edit")}
+                className="cursor-pointer gap-2"
+              >
+                <ArrowRight className="h-4 w-4 rotate-180" />
+                Edit Text
+              </Button>
+
+              <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                <Sparkles className="h-3 w-3 animate-pulse text-primary" />
+                Compares client-side only. Data never leaves your device.
+              </span>
+            </div>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   )
 }
