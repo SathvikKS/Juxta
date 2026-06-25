@@ -1,5 +1,5 @@
 {
-  "name": "Differ",
+  "name": "differ",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -16,6 +16,7 @@
     "@tailwindcss/vite": "^4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "diff": "^9.0.0",
     "lucide-react": "^1.21.0",
     "radix-ui": "^1.6.0",
     "react": "^19.2.6",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10",
+    "@types/diff": "^7.0.2",
     "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
