@@ -442,9 +442,6 @@ export default function DiffChecker() {
             <h1 className="bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text text-2xl font-bold tracking-tight text-transparent">
               Juxta
             </h1>
-            <span className="rounded-md border border-border/50 bg-muted/80 px-2 py-0.5 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-              Offline
-            </span>
           </div>
           <p className="text-sm text-muted-foreground">
             A fully local, secure, and client-side text differences visualizer.
