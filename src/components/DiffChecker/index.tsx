@@ -7,12 +7,15 @@ import {
   ArrowRight,
   ArrowLeft,
   Sparkles,
+  Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Kbd } from "@/components/ui/kbd"
 import { SettingsPanel, DEFAULT_SETTINGS } from "./SettingsPanel"
 import type { DiffSettings } from "./SettingsPanel"
+import type { SettingCategory } from "./settingsSchema"
+import { CommandMenu } from "./CommandMenu"
 import { StatsBar } from "./StatsBar"
 import { DiffViewer } from "./DiffViewer"
 import { TextEditor } from "./TextEditor"
@@ -79,6 +82,17 @@ export default function DiffChecker() {
     }
     return DEFAULT_SETTINGS
   })
+
+  // Settings Panel state control
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
+  const [settingsActiveTab, setSettingsActiveTab] = React.useState<SettingCategory>("comparison")
+  const [highlightedSetting, setHighlightedSetting] = React.useState<string | null>(null)
+
+  const handleOpenSettingsPanel = (category: SettingCategory, key: string) => {
+    setSettingsActiveTab(category)
+    setHighlightedSetting(key)
+    setIsSettingsOpen(true)
+  }
 
   // Views & tabs
   const [activeTab, setActiveTab] = React.useState<string>("edit")
@@ -495,6 +509,8 @@ export default function DiffChecker() {
               showLineNumbers={settings.showLineNumbers}
               wrapLines={settings.wrapLines}
               scrollLock={settings.scrollLock}
+              originalText={comparedState.original}
+              changedText={comparedState.changed}
             />
           </div>
         </div>
@@ -579,6 +595,8 @@ export default function DiffChecker() {
                 showLineNumbers={settings.showLineNumbers}
                 wrapLines={settings.wrapLines}
                 scrollLock={settings.scrollLock}
+                originalText={comparedState.original}
+                changedText={comparedState.changed}
               />
 
               {/* Bottom Action Controls */}

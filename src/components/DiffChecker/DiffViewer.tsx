@@ -1,6 +1,14 @@
 import React from "react"
 import type { Change } from "diff"
 import type { AlignedLine, UnifiedLine } from "@/lib/diffEngine"
+import { Copy, Check } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface DiffViewerProps {
   alignedLines: AlignedLine[]
@@ -9,6 +17,8 @@ interface DiffViewerProps {
   showLineNumbers: boolean
   wrapLines: boolean
   scrollLock: boolean
+  originalText: string
+  changedText: string
 }
 
 export function DiffViewer({
@@ -18,10 +28,37 @@ export function DiffViewer({
   showLineNumbers,
   wrapLines,
   scrollLock,
+  originalText,
+  changedText,
 }: DiffViewerProps) {
   const leftScrollRef = React.useRef<HTMLDivElement>(null)
   const rightScrollRef = React.useRef<HTMLDivElement>(null)
   const isSyncing = React.useRef(false)
+
+  const [copiedOriginal, setCopiedOriginal] = React.useState(false)
+  const [copiedChanged, setCopiedChanged] = React.useState(false)
+
+  const handleCopyOriginal = async () => {
+    if (!originalText) return
+    try {
+      await navigator.clipboard.writeText(originalText)
+      setCopiedOriginal(true)
+      setTimeout(() => setCopiedOriginal(false), 2000)
+    } catch (err) {
+      console.error("Failed to copy original text:", err)
+    }
+  }
+
+  const handleCopyChanged = async () => {
+    if (!changedText) return
+    try {
+      await navigator.clipboard.writeText(changedText)
+      setCopiedChanged(true)
+      setTimeout(() => setCopiedChanged(false), 2000)
+    } catch (err) {
+      console.error("Failed to copy changed text:", err)
+    }
+  }
 
   // Synchronized scrolling handler
   const handleScroll = (source: "left" | "right") => {
@@ -146,11 +183,57 @@ export function DiffViewer({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
         {/* Table header */}
         <div className="flex shrink-0 divide-x divide-border border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground">
-          <div className="flex w-1/2 items-center justify-between px-4 py-2">
+          <div className="flex w-1/2 items-center justify-between px-4 py-1.5">
             <span>Original Version</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="cursor-pointer text-muted-foreground hover:text-foreground"
+                    onClick={handleCopyOriginal}
+                    disabled={!originalText}
+                    aria-label="Copy original text"
+                  >
+                    {copiedOriginal ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>{copiedOriginal ? "Copied!" : "Copy Original Version"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-          <div className="flex w-1/2 items-center justify-between px-4 py-2">
+          <div className="flex w-1/2 items-center justify-between px-4 py-1.5">
             <span>Changed Version</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="cursor-pointer text-muted-foreground hover:text-foreground"
+                    onClick={handleCopyChanged}
+                    disabled={!changedText}
+                    aria-label="Copy changed text"
+                  >
+                    {copiedChanged ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>{copiedChanged ? "Copied!" : "Copy Changed Version"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 
@@ -235,9 +318,58 @@ export function DiffViewer({
   // Unified View
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
-      <div className="flex shrink-0 border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground">
-        <div className="flex items-center gap-2 px-4 py-2">
+      <div className="flex shrink-0 items-center justify-between border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground px-4 py-1.5">
+        <div className="flex items-center gap-2">
           <span>Unified View</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="cursor-pointer text-muted-foreground hover:text-foreground"
+                  onClick={handleCopyOriginal}
+                  disabled={!originalText}
+                  aria-label="Copy original text"
+                >
+                  {copiedOriginal ? (
+                    <Check className="h-3.5 w-3.5 text-green-500" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{copiedOriginal ? "Copied!" : "Copy Original Version"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="cursor-pointer text-muted-foreground hover:text-foreground"
+                  onClick={handleCopyChanged}
+                  disabled={!changedText}
+                  aria-label="Copy changed text"
+                >
+                  {copiedChanged ? (
+                    <Check className="h-3.5 w-3.5 text-green-500" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{copiedChanged ? "Copied!" : "Copy Changed Version"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
