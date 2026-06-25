@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS: DiffSettings = {
   trimWhitespace: false,
   lineEndingSensitive: false,
   ignoreLastLineNewline: false,
-  inlineDiffMode: "char",
+  inlineDiffMode: "word",
   autoCompare: -1,
   showLineNumbers: true,
   wrapLines: true,
