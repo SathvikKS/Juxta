@@ -444,40 +444,32 @@ export default function DiffChecker() {
           {renderInputPanes(true)}
           
           <div className="flex min-h-0 flex-1 flex-col gap-3">
-            {/* Sync scroll controls / view mode switcher */}
-            <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/40 p-1.5 shrink-0">
-              <div className="flex items-center gap-1.5 px-2">
-                <span className="text-xs font-semibold text-muted-foreground">Live Visual Diff</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
-                  <Button
-                    variant={viewMode === "split" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                    onClick={() => setViewMode("split")}
-                  >
-                    Split View
-                  </Button>
-                  <Button
-                    variant={viewMode === "unified" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                    onClick={() => setViewMode("unified")}
-                  >
-                    Unified View
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Bar */}
+            {/* Stats Bar with View Switcher */}
             <StatsBar
               similarity={similarity}
               addedCount={addedCount}
               removedCount={removedCount}
               totalLines={totalLines}
-            />
+            >
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
+                <Button
+                  variant={viewMode === "split" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+                  onClick={() => setViewMode("split")}
+                >
+                  Split View
+                </Button>
+                <Button
+                  variant={viewMode === "unified" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+                  onClick={() => setViewMode("unified")}
+                >
+                  Unified View
+                </Button>
+              </div>
+            </StatsBar>
 
             {/* Interactive Viewer */}
             <DiffViewer
@@ -511,30 +503,6 @@ export default function DiffChecker() {
                 2. Visual Diff
               </TabsTrigger>
             </TabsList>
-
-            {/* Sub-controls when in Visual Diff mode */}
-            {activeTab === "diff" && (
-              <div className="flex items-center gap-2 self-end sm:self-auto">
-                <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
-                  <Button
-                    variant={viewMode === "split" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                    onClick={() => setViewMode("split")}
-                  >
-                    Split View
-                  </Button>
-                  <Button
-                    variant={viewMode === "unified" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                    onClick={() => setViewMode("unified")}
-                  >
-                    Unified View
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
 
           <TabsContent
@@ -577,7 +545,26 @@ export default function DiffChecker() {
               addedCount={addedCount}
               removedCount={removedCount}
               totalLines={totalLines}
-            />
+            >
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
+                <Button
+                  variant={viewMode === "split" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+                  onClick={() => setViewMode("split")}
+                >
+                  Split View
+                </Button>
+                <Button
+                  variant={viewMode === "unified" ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+                  onClick={() => setViewMode("unified")}
+                >
+                  Unified View
+                </Button>
+              </div>
+            </StatsBar>
 
             {/* Interactive Viewer */}
             <DiffViewer
