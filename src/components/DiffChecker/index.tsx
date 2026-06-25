@@ -226,7 +226,7 @@ export default function DiffChecker() {
   const totalLines = alignedLines.length
 
   return (
-    <div className="w-full max-w-7xl mx-auto flex flex-col gap-6 p-4 md:p-6 min-h-[calc(100vh-3rem)]">
+    <div className="w-full max-w-7xl mx-auto flex flex-col gap-4 p-4 md:p-6 h-full overflow-hidden">
       
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/80 pb-5">
@@ -318,13 +318,12 @@ export default function DiffChecker() {
           )}
         </div>
 
-        {/* Edit Editor Pane */}
-        <TabsContent value="edit" className="flex-1 flex flex-col gap-4 focus-visible:outline-none">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 flex-1 items-stretch">
+        <TabsContent value="edit" className="flex-1 flex flex-col gap-4 focus-visible:outline-none min-h-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 flex-1 min-h-0 items-stretch">
             
             {/* Left Input Pane: Original */}
             <Card
-              className="flex flex-col border-border/70 overflow-hidden shadow-xs relative"
+              className="flex flex-col flex-1 min-h-0 border-border/70 overflow-hidden shadow-xs relative bg-card"
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, "original")}
             >
@@ -362,7 +361,7 @@ export default function DiffChecker() {
                 </div>
               </div>
               <textarea
-                className="flex-1 min-h-[350px] lg:min-h-[500px] p-4 font-mono text-sm leading-relaxed bg-background/50 border-0 focus-visible:ring-0 focus-visible:outline-none resize-none"
+                className="flex-1 min-h-0 p-4 font-mono text-sm leading-relaxed bg-background/50 border-0 focus-visible:ring-0 focus-visible:outline-none resize-none overflow-y-auto"
                 placeholder="Paste the original content here or drag-and-drop a text file..."
                 value={originalText}
                 onChange={(e) => setOriginalText(e.target.value)}
@@ -384,7 +383,7 @@ export default function DiffChecker() {
 
             {/* Right Input Pane: Changed */}
             <Card
-              className="flex flex-col border-border/70 overflow-hidden shadow-xs relative"
+              className="flex flex-col flex-1 min-h-0 border-border/70 overflow-hidden shadow-xs relative bg-card"
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, "changed")}
             >
@@ -422,7 +421,7 @@ export default function DiffChecker() {
                 </div>
               </div>
               <textarea
-                className="flex-1 min-h-[350px] lg:min-h-[500px] p-4 font-mono text-sm leading-relaxed bg-background/50 border-0 focus-visible:ring-0 focus-visible:outline-none resize-none"
+                className="flex-1 min-h-0 p-4 font-mono text-sm leading-relaxed bg-background/50 border-0 focus-visible:ring-0 focus-visible:outline-none resize-none overflow-y-auto"
                 placeholder="Paste the changed content here or drag-and-drop a text file..."
                 value={changedText}
                 onChange={(e) => setChangedText(e.target.value)}
@@ -450,7 +449,7 @@ export default function DiffChecker() {
         </TabsContent>
 
         {/* Diff Output Pane */}
-        <TabsContent value="diff" className="flex-1 flex flex-col gap-4 focus-visible:outline-none">
+        <TabsContent value="diff" className="flex-1 flex flex-col gap-4 focus-visible:outline-none min-h-0">
           {/* Stats Bar */}
           <StatsBar
             similarity={similarity}
@@ -466,6 +465,7 @@ export default function DiffChecker() {
             viewMode={viewMode}
             showLineNumbers={settings.showLineNumbers}
             wrapLines={settings.wrapLines}
+            scrollLock={settings.scrollLock}
           />
 
           {/* Back button */}

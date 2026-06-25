@@ -37,6 +37,7 @@ export interface DiffSettings {
   autoCompare: boolean;
   showLineNumbers: boolean;
   wrapLines: boolean;
+  scrollLock: boolean;
 }
 
 export const DEFAULT_SETTINGS: DiffSettings = {
@@ -48,6 +49,7 @@ export const DEFAULT_SETTINGS: DiffSettings = {
   autoCompare: true,
   showLineNumbers: true,
   wrapLines: true,
+  scrollLock: true,
 }
 
 interface SettingsPanelProps {
@@ -253,6 +255,33 @@ export function SettingsPanel({ settings, onSettingsChange }: SettingsPanelProps
                 id="autoCompare"
                 checked={settings.autoCompare}
                 onCheckedChange={(val) => updateSetting("autoCompare", val)}
+              />
+            </div>
+
+            {/* Scroll Lock */}
+            <div className="flex items-center justify-between border-b pb-3 border-border/40">
+              <div className="flex flex-col gap-1 pr-4">
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="scrollLock" className="text-sm font-medium cursor-pointer">
+                    Sync Scrolling (Scroll Lock)
+                  </Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-[240px] text-xs">
+                        When enabled, scrolling either column will scroll the other at the same time to keep the comparison aligned.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <span className="text-xs text-muted-foreground">Keep split view scrolling synchronized</span>
+              </div>
+              <Switch
+                id="scrollLock"
+                checked={settings.scrollLock}
+                onCheckedChange={(val) => updateSetting("scrollLock", val)}
               />
             </div>
 

@@ -1,3 +1,4 @@
+import React from "react"
 import type { Change } from "diff"
 import type { AlignedLine, UnifiedLine } from "@/lib/diffEngine"
 
@@ -7,6 +8,7 @@ interface DiffViewerProps {
   viewMode: "split" | "unified"
   showLineNumbers: boolean
   wrapLines: boolean
+  scrollLock: boolean
 }
 
 export function DiffViewer({
@@ -15,7 +17,47 @@ export function DiffViewer({
   viewMode,
   showLineNumbers,
   wrapLines,
+  scrollLock,
 }: DiffViewerProps) {
+  const leftScrollRef = React.useRef<HTMLDivElement>(null)
+  const rightScrollRef = React.useRef<HTMLDivElement>(null)
+  const isSyncing = React.useRef(false)
+
+  // Synchronized scrolling handler
+  const handleScroll = (source: "left" | "right") => {
+    if (!scrollLock) return
+    if (isSyncing.current) return
+
+    const sourceEl = source === "left" ? leftScrollRef.current : rightScrollRef.current
+    const targetEl = source === "left" ? rightScrollRef.current : leftScrollRef.current
+
+    if (!sourceEl || !targetEl) return
+
+    isSyncing.current = true
+    targetEl.scrollTop = sourceEl.scrollTop
+    targetEl.scrollLeft = sourceEl.scrollLeft
+
+    // Clear sync lock in next animation frame
+    requestAnimationFrame(() => {
+      isSyncing.current = false
+    })
+  }
+
+  // Resync scrolls when scroll lock is enabled
+  React.useEffect(() => {
+    if (scrollLock && viewMode === "split") {
+      const left = leftScrollRef.current
+      const right = rightScrollRef.current
+      if (left && right) {
+        isSyncing.current = true
+        right.scrollTop = left.scrollTop
+        right.scrollLeft = left.scrollLeft
+        requestAnimationFrame(() => {
+          isSyncing.current = false
+        })
+      }
+    }
+  }, [scrollLock, viewMode])
   
   // Return background color classes for line categories
   const getLineBgClass = (type: "added" | "removed" | "normal" | "empty") => {
@@ -96,9 +138,9 @@ export function DiffViewer({
 
   if (viewMode === "split") {
     return (
-      <div className="flex flex-col border border-border/80 rounded-xl overflow-hidden bg-card text-card-foreground shadow-xs">
+      <div className="flex-1 min-h-0 flex flex-col border border-border/80 rounded-xl overflow-hidden bg-card text-card-foreground shadow-xs">
         {/* Table header */}
-        <div className="flex text-xs font-semibold text-muted-foreground border-b border-border bg-muted/40 divide-x divide-border">
+        <div className="flex shrink-0 text-xs font-semibold text-muted-foreground border-b border-border bg-muted/40 divide-x divide-border">
           <div className="w-1/2 py-2 px-4 flex items-center justify-between">
             <span>Original Version</span>
           </div>
@@ -108,11 +150,15 @@ export function DiffViewer({
         </div>
 
         {/* Aligned Diff Code Pane */}
-        <div className="flex flex-col overflow-y-auto max-h-[650px] divide-y divide-border/20 font-mono text-sm leading-relaxed">
-          {alignedLines.map((row, index) => (
-            <div key={index} className="flex min-w-max hover:bg-muted/5 group divide-x divide-border/40">
-              {/* Left Pane (Original) */}
-              <div className={`w-1/2 flex items-stretch ${getLineBgClass(row.left.type)}`}>
+        <div className="flex-1 min-h-0 flex divide-x divide-border bg-background">
+          {/* Left Pane (Original) */}
+          <div
+            ref={leftScrollRef}
+            onScroll={() => handleScroll("left")}
+            className="w-1/2 overflow-auto h-full divide-y divide-border/10 font-mono text-sm leading-relaxed scrollbar-thin"
+          >
+            {alignedLines.map((row, index) => (
+              <div key={index} className={`flex items-stretch min-w-max hover:bg-muted/5 group ${getLineBgClass(row.left.type)}`}>
                 {showLineNumbers && (
                   <div className="w-11 select-none text-right pr-2.5 text-muted-foreground/45 border-r border-border/20 bg-muted/10 py-1 text-xs select-none">
                     {row.left.lineNumber ?? ""}
@@ -122,9 +168,23 @@ export function DiffViewer({
                   {renderLineContent(row.left.text, row.left.type, row.left.subChanges)}
                 </div>
               </div>
+            ))}
 
-              {/* Right Pane (Changed) */}
-              <div className={`w-1/2 flex items-stretch ${getLineBgClass(row.right.type)}`}>
+            {alignedLines.length === 0 && (
+              <div className="py-12 text-center text-muted-foreground font-sans text-xs">
+                No original text to display.
+              </div>
+            )}
+          </div>
+
+          {/* Right Pane (Changed) */}
+          <div
+            ref={rightScrollRef}
+            onScroll={() => handleScroll("right")}
+            className="w-1/2 overflow-auto h-full divide-y divide-border/10 font-mono text-sm leading-relaxed scrollbar-thin"
+          >
+            {alignedLines.map((row, index) => (
+              <div key={index} className={`flex items-stretch min-w-max hover:bg-muted/5 group ${getLineBgClass(row.right.type)}`}>
                 {showLineNumbers && (
                   <div className="w-11 select-none text-right pr-2.5 text-muted-foreground/45 border-r border-border/20 bg-muted/10 py-1 text-xs select-none">
                     {row.right.lineNumber ?? ""}
@@ -134,14 +194,14 @@ export function DiffViewer({
                   {renderLineContent(row.right.text, row.right.type, row.right.subChanges)}
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          {alignedLines.length === 0 && (
-            <div className="py-12 text-center text-muted-foreground font-sans text-xs">
-              No differences to display. Enter original and changed texts to compare.
-            </div>
-          )}
+            {alignedLines.length === 0 && (
+              <div className="py-12 text-center text-muted-foreground font-sans text-xs">
+                No changed text to display.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -149,14 +209,14 @@ export function DiffViewer({
 
   // Unified View
   return (
-    <div className="flex flex-col border border-border/80 rounded-xl overflow-hidden bg-card text-card-foreground shadow-xs">
-      <div className="flex text-xs font-semibold text-muted-foreground border-b border-border bg-muted/40">
+    <div className="flex-1 min-h-0 flex flex-col border border-border/80 rounded-xl overflow-hidden bg-card text-card-foreground shadow-xs">
+      <div className="flex shrink-0 text-xs font-semibold text-muted-foreground border-b border-border bg-muted/40">
         <div className="py-2 px-4 flex items-center gap-2">
           <span>Unified View</span>
         </div>
       </div>
 
-      <div className="flex flex-col overflow-y-auto max-h-[650px] divide-y divide-border/20 font-mono text-sm leading-relaxed">
+      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-border/20 font-mono text-sm leading-relaxed scrollbar-thin">
         {unifiedLines.map((line, index) => (
           <div key={index} className={`flex hover:bg-muted/5 group ${getLineBgClass(line.type)}`}>
             {showLineNumbers && (
