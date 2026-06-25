@@ -319,11 +319,11 @@ export default function DiffChecker() {
         </Card>
 
         {/* Swap Button container in-between */}
-        <div className="absolute top-1/2 left-1/2 z-10 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
+        <div className="absolute top-1/2 left-1/2 z-20 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
           <Button
             variant="outline"
             size="icon"
-            className="h-10 w-10 animate-pulse cursor-pointer rounded-full border border-border bg-background shadow-md hover:animate-none hover:bg-muted"
+            className="h-10 w-10 cursor-pointer rounded-full border border-border bg-background shadow-lg transition-transform duration-200 hover:scale-110 active:scale-95 hover:bg-muted"
             onClick={handleSwap}
             title="Swap contents"
           >
