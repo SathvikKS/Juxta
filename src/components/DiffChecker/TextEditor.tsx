@@ -19,7 +19,7 @@ export function TextEditor({
   const gutterRef = React.useRef<HTMLDivElement>(null)
   const [clientWidth, setClientWidth] = React.useState<number>(0)
 
-  const lines = value.split("\n")
+  const lines = value.replace(/\r/g, "").split("\n")
 
   // Synchronize vertical scroll from textarea to gutter
   const handleScroll = React.useCallback(() => {
@@ -64,12 +64,13 @@ export function TextEditor({
             {lines.map((line, i) => (
               <div
                 key={i}
-                className="relative flex w-full font-mono text-sm leading-relaxed pl-[56px] pr-4"
+                className="relative flex w-full font-mono text-sm pl-[56px] pr-4"
+                style={{ lineHeight: "22px" }}
               >
                 {/* Opaque Gutter background & Line Number */}
                 <div className="absolute left-0 top-0 bottom-0 w-11 border-r border-border/20 bg-card select-none">
                   <div className="absolute inset-0 bg-muted/10 flex items-stretch">
-                    <div className="w-full pr-2.5 text-right text-xs text-muted-foreground/45 select-none pt-[1px] font-mono">
+                    <div className="w-full pr-2.5 text-right text-xs text-muted-foreground/45 select-none pt-[3px] font-mono">
                       {i + 1}
                     </div>
                   </div>
@@ -78,7 +79,7 @@ export function TextEditor({
                 {/* Invisible text that mirrors wrapping */}
                 <div
                   className={`invisible w-full select-none ${
-                    wrapLines ? "whitespace-pre-wrap break-all" : "whitespace-pre"
+                    wrapLines ? "whitespace-pre-wrap break-words" : "whitespace-pre"
                   }`}
                 >
                   {line || " "}
@@ -93,12 +94,12 @@ export function TextEditor({
         ref={textareaRef}
         onScroll={handleScroll}
         wrap={wrapLines ? "soft" : "off"}
-        className={`min-h-0 flex-1 resize-none overflow-auto border-0 bg-transparent pt-4 pb-4 pr-4 font-mono text-sm leading-relaxed focus-visible:ring-0 focus-visible:outline-none ${
+        className={`min-h-0 flex-1 resize-none overflow-auto border-0 bg-transparent pt-4 pb-4 pr-4 font-mono text-sm focus-visible:ring-0 focus-visible:outline-none ${
           showLineNumbers ? "pl-[56px]" : "pl-4"
         } ${
-          wrapLines ? "whitespace-pre-wrap break-all" : "whitespace-pre"
+          wrapLines ? "whitespace-pre-wrap break-words" : "whitespace-pre"
         }`}
-        style={{ lineHeight: "inherit" }}
+        style={{ lineHeight: "22px" }}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}

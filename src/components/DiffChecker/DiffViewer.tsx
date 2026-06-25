@@ -137,10 +137,11 @@ export function DiffViewer({
   }
 
   const lineWrapClass = wrapLines
-    ? "whitespace-pre-wrap break-all"
+    ? "whitespace-pre-wrap break-words"
     : "whitespace-pre overflow-x-auto"
 
   if (viewMode === "split") {
+    const rowWidthClass = wrapLines ? "w-full min-w-0" : "min-w-max"
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
         {/* Table header */}
@@ -164,7 +165,7 @@ export function DiffViewer({
             {alignedLines.map((row, index) => (
               <div
                 key={index}
-                className={`group flex min-w-max items-stretch hover:bg-muted/5 ${getLineBgClass(row.left.type)}`}
+                className={`group flex ${rowWidthClass} items-stretch hover:bg-muted/5 ${getLineBgClass(row.left.type)}`}
               >
                 {showLineNumbers && (
                   <div className="w-11 shrink-0 sticky left-0 z-10 border-r border-border/20 bg-background select-none">
@@ -200,7 +201,7 @@ export function DiffViewer({
             {alignedLines.map((row, index) => (
               <div
                 key={index}
-                className={`group flex min-w-max items-stretch hover:bg-muted/5 ${getLineBgClass(row.right.type)}`}
+                className={`group flex ${rowWidthClass} items-stretch hover:bg-muted/5 ${getLineBgClass(row.right.type)}`}
               >
                 {showLineNumbers && (
                   <div className="w-11 shrink-0 sticky left-0 z-10 border-r border-border/20 bg-background select-none">
