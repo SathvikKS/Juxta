@@ -41,6 +41,7 @@ export interface DiffSettings {
   showLineNumbers: boolean
   wrapLines: boolean
   scrollLock: boolean
+  disableSpellCheck: boolean
 }
 
 export const DEFAULT_SETTINGS: DiffSettings = {
@@ -54,6 +55,7 @@ export const DEFAULT_SETTINGS: DiffSettings = {
   showLineNumbers: true,
   wrapLines: true,
   scrollLock: true,
+  disableSpellCheck: true,
 }
 
 interface SettingsPanelProps {
@@ -444,6 +446,28 @@ export function SettingsPanel({
                       id="wrapLines"
                       checked={settings.wrapLines}
                       onCheckedChange={(val) => updateSetting("wrapLines", val)}
+                    />
+                  </div>
+
+                  {/* Disable Spell Check */}
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <Label
+                        htmlFor="disableSpellCheck"
+                        className="cursor-pointer text-sm font-medium"
+                      >
+                        Disable Spell Check
+                      </Label>
+                      <span className="text-xs text-muted-foreground">
+                        Disable browser spell check and red underlines
+                      </span>
+                    </div>
+                    <Switch
+                      id="disableSpellCheck"
+                      checked={settings.disableSpellCheck}
+                      onCheckedChange={(val) =>
+                        updateSetting("disableSpellCheck", val)
+                      }
                     />
                   </div>
 

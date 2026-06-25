@@ -315,6 +315,7 @@ export default function DiffChecker() {
             onChange={setOriginalText}
             showLineNumbers={settings.showLineNumbers}
             wrapLines={settings.wrapLines}
+            disableSpellCheck={settings.disableSpellCheck}
           />
         </Card>
 
@@ -376,6 +377,7 @@ export default function DiffChecker() {
             onChange={setChangedText}
             showLineNumbers={settings.showLineNumbers}
             wrapLines={settings.wrapLines}
+            disableSpellCheck={settings.disableSpellCheck}
           />
         </Card>
       </div>

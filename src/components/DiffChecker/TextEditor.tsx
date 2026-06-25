@@ -6,6 +6,7 @@ interface TextEditorProps {
   placeholder?: string
   showLineNumbers: boolean
   wrapLines: boolean
+  disableSpellCheck?: boolean
 }
 
 export function TextEditor({
@@ -14,6 +15,7 @@ export function TextEditor({
   placeholder,
   showLineNumbers,
   wrapLines,
+  disableSpellCheck = true,
 }: TextEditorProps) {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   const gutterRef = React.useRef<HTMLDivElement>(null)
@@ -94,6 +96,7 @@ export function TextEditor({
         ref={textareaRef}
         onScroll={handleScroll}
         wrap={wrapLines ? "soft" : "off"}
+        spellCheck={!disableSpellCheck}
         className={`min-h-0 flex-1 resize-none overflow-auto border-0 bg-transparent pt-0 pb-0 pr-4 font-mono text-sm focus-visible:ring-0 focus-visible:outline-none ${
           showLineNumbers ? "pl-[56px]" : "pl-4"
         } ${
