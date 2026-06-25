@@ -307,25 +307,58 @@ export default function DiffChecker() {
     )
   }
 
-  // Compute actual visual diffs based strictly on comparedState using useMemo
-  const { alignedLines, unifiedLines, similarity } = React.useMemo(() => {
-    const aligned = computeAlignedDiff(
+  // Deferred diff computation: show skeleton while computing
+  const [isComputing, setIsComputing] = React.useState(false)
+  const [diffResult, setDiffResult] = React.useState<{
+    alignedLines: import("@/lib/diffEngine").AlignedLine[]
+    unifiedLines: import("@/lib/diffEngine").UnifiedLine[]
+    similarity: number
+  }>(() => ({
+    alignedLines: computeAlignedDiff(
       comparedState.original,
       comparedState.changed,
       comparedState.settings
-    )
-    const unified = computeUnifiedDiff(
+    ),
+    unifiedLines: computeUnifiedDiff(
       comparedState.original,
       comparedState.changed,
       comparedState.settings
-    )
-    const sim = computeSimilarity(
+    ),
+    similarity: computeSimilarity(
       comparedState.original,
       comparedState.changed,
       comparedState.settings
-    )
-    return { alignedLines: aligned, unifiedLines: unified, similarity: sim }
+    ),
+  }))
+
+  React.useEffect(() => {
+    setIsComputing(true)
+
+    // Defer computation so React can render the skeleton frame first
+    const timer = setTimeout(() => {
+      const aligned = computeAlignedDiff(
+        comparedState.original,
+        comparedState.changed,
+        comparedState.settings
+      )
+      const unified = computeUnifiedDiff(
+        comparedState.original,
+        comparedState.changed,
+        comparedState.settings
+      )
+      const sim = computeSimilarity(
+        comparedState.original,
+        comparedState.changed,
+        comparedState.settings
+      )
+      setDiffResult({ alignedLines: aligned, unifiedLines: unified, similarity: sim })
+      setIsComputing(false)
+    }, 0)
+
+    return () => clearTimeout(timer)
   }, [comparedState])
+
+  const { alignedLines, unifiedLines, similarity } = diffResult
 
   // Swap texts
   const handleSwap = () => {
@@ -628,6 +661,7 @@ export default function DiffChecker() {
               removedCount={removedCount}
               totalLines={totalLines}
               keyValueSorted={comparedState.settings.sortKeyValuePairs}
+              isComputing={isComputing}
             >
               <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
                 <Button
@@ -659,6 +693,7 @@ export default function DiffChecker() {
               scrollLock={settings.scrollLock}
               originalText={comparedState.original}
               changedText={comparedState.changed}
+              isComputing={isComputing}
             />
           </div>
         </div>
@@ -716,6 +751,7 @@ export default function DiffChecker() {
                 removedCount={removedCount}
                 totalLines={totalLines}
                 keyValueSorted={comparedState.settings.sortKeyValuePairs}
+                isComputing={isComputing}
               >
                 <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
                   <Button
@@ -747,6 +783,7 @@ export default function DiffChecker() {
                 scrollLock={settings.scrollLock}
                 originalText={comparedState.original}
                 changedText={comparedState.changed}
+                isComputing={isComputing}
               />
 
               {/* Bottom Action Controls */}

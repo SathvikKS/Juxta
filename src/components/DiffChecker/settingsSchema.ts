@@ -71,6 +71,14 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     type: "switch",
   },
   {
+    key: "ignoreComments",
+    label: "Ignore Comments",
+    description: "Strip full-line comments before comparing",
+    tooltip: "When enabled, full-line comments (lines starting with #, //, or ;) are removed before comparison. Inline comments within values are preserved. Useful for .env, .properties, and config files.",
+    category: "comparison",
+    type: "switch",
+  },
+  {
     key: "caseSensitive",
     label: "Case Sensitive",
     description: "Distinguish uppercase and lowercase",

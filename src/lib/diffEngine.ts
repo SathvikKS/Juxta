@@ -10,6 +10,7 @@ export interface DiffEngineOptions {
   inlineDiffMode: "char" | "word" | "none"
   sortKeyValuePairs: boolean
   ignoreEmptyLines: boolean
+  ignoreComments: boolean
 }
 
 export interface AlignedLine {
@@ -121,6 +122,22 @@ function preprocessText(text: string, options: DiffEngineOptions): string {
     processed = processed.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
   }
 
+  // Strip full-line comments if enabled
+  // Supports #, //, and ; as comment markers (only when the entire line is a comment)
+  if (options.ignoreComments) {
+    processed = processed
+      .split("\n")
+      .filter((line) => {
+        const trimmed = line.trim()
+        return (
+          !trimmed.startsWith("#") &&
+          !trimmed.startsWith("//") &&
+          !trimmed.startsWith(";")
+        )
+      })
+      .join("\n")
+  }
+
   // Ignore empty lines if enabled
   if (options.ignoreEmptyLines) {
     processed = processed
@@ -132,6 +149,20 @@ function preprocessText(text: string, options: DiffEngineOptions): string {
   // Sort key-value pairs if enabled
   if (options.sortKeyValuePairs) {
     processed = sortKeyValuePairs(processed)
+
+    // Normalize whitespace around key-value delimiters (= or :)
+    // so `KEY = value` and `KEY=value` are treated identically.
+    // Only applies to lines that match key-value format.
+    processed = processed
+      .split("\n")
+      .map((line) => {
+        const match = line.match(/^([ \t]*)([A-Za-z0-9_.-]+)[ \t]*[=:][ \t]*(.*)$/)
+        if (match) {
+          return `${match[1]}${match[2]}=${match[3]}`
+        }
+        return line
+      })
+      .join("\n")
   }
 
   // Trim spaces on each line if enabled

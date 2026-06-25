@@ -51,6 +51,7 @@ export const PRESETS: Record<PresetType, PresetDefinition> = {
     settings: {
       sortKeyValuePairs: true,
       ignoreEmptyLines: true,
+      ignoreComments: true,
       whitespaceSensitive: false,
       trimWhitespace: true,
       lineEndingSensitive: false,
@@ -61,6 +62,7 @@ export const PRESETS: Record<PresetType, PresetDefinition> = {
 export interface DiffSettings {
   sortKeyValuePairs: boolean
   ignoreEmptyLines: boolean
+  ignoreComments: boolean
   caseSensitive: boolean
   whitespaceSensitive: boolean
   trimWhitespace: boolean
@@ -79,6 +81,7 @@ export interface DiffSettings {
 export const DEFAULT_SETTINGS: DiffSettings = {
   sortKeyValuePairs: false,
   ignoreEmptyLines: false,
+  ignoreComments: false,
   caseSensitive: true,
   whitespaceSensitive: true,
   trimWhitespace: false,
