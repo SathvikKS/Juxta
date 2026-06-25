@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Kbd } from "@/components/ui/kbd"
+import { Switch } from "@/components/ui/switch"
 import {
   SettingsPanel,
   DEFAULT_SETTINGS,
@@ -144,6 +145,7 @@ export default function DiffChecker() {
   // Views & tabs
   const [activeTab, setActiveTab] = React.useState<string>("edit")
   const [viewMode, setViewMode] = React.useState<"split" | "unified">("split")
+  const [ignoreEnvValueChanges, setIgnoreEnvValueChanges] = React.useState(false)
 
   // The actual texts and settings used to compute the visual diff.
   // This decoupling prevents cascading updates and allows support for manual triggers.
@@ -156,6 +158,15 @@ export default function DiffChecker() {
     changed: changedText,
     settings,
   }))
+
+  const getDiffOptions = React.useCallback(
+    (baseSettings: DiffSettings) => ({
+      ...baseSettings,
+      ignoreKeyValueValueChanges:
+        baseSettings.preset === "env" && ignoreEnvValueChanges,
+    }),
+    [ignoreEnvValueChanges]
+  )
 
   // Save texts to localStorage
   React.useEffect(() => {
@@ -317,17 +328,17 @@ export default function DiffChecker() {
     alignedLines: computeAlignedDiff(
       comparedState.original,
       comparedState.changed,
-      comparedState.settings
+      getDiffOptions(comparedState.settings)
     ),
     unifiedLines: computeUnifiedDiff(
       comparedState.original,
       comparedState.changed,
-      comparedState.settings
+      getDiffOptions(comparedState.settings)
     ),
     similarity: computeSimilarity(
       comparedState.original,
       comparedState.changed,
-      comparedState.settings
+      getDiffOptions(comparedState.settings)
     ),
   }))
 
@@ -339,24 +350,24 @@ export default function DiffChecker() {
       const aligned = computeAlignedDiff(
         comparedState.original,
         comparedState.changed,
-        comparedState.settings
+        getDiffOptions(comparedState.settings)
       )
       const unified = computeUnifiedDiff(
         comparedState.original,
         comparedState.changed,
-        comparedState.settings
+        getDiffOptions(comparedState.settings)
       )
       const sim = computeSimilarity(
         comparedState.original,
         comparedState.changed,
-        comparedState.settings
+        getDiffOptions(comparedState.settings)
       )
       setDiffResult({ alignedLines: aligned, unifiedLines: unified, similarity: sim })
       setIsComputing(false)
     }, 0)
 
     return () => clearTimeout(timer)
-  }, [comparedState])
+  }, [comparedState, getDiffOptions])
 
   const { alignedLines, unifiedLines, similarity } = diffResult
 
@@ -573,6 +584,41 @@ export default function DiffChecker() {
   const addedCount = unifiedLines.filter((l) => l.type === "added").length
   const removedCount = unifiedLines.filter((l) => l.type === "removed").length
   const totalLines = alignedLines.length
+  const showEnvValueToggle = comparedState.settings.preset === "env"
+
+  const renderDiffControls = () => (
+    <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+      {showEnvValueToggle && (
+        <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-xs font-semibold shadow-xs">
+          <Switch
+            size="sm"
+            checked={ignoreEnvValueChanges}
+            onCheckedChange={setIgnoreEnvValueChanges}
+            aria-label="Ignore .env value changes"
+          />
+          <span className="text-muted-foreground">Ignore values</span>
+        </label>
+      )}
+      <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
+        <Button
+          variant={viewMode === "split" ? "secondary" : "ghost"}
+          size="icon"
+          className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+          onClick={() => setViewMode("split")}
+        >
+          Split View
+        </Button>
+        <Button
+          variant={viewMode === "unified" ? "secondary" : "ghost"}
+          size="icon"
+          className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+          onClick={() => setViewMode("unified")}
+        >
+          Unified View
+        </Button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-4 overflow-hidden p-4 md:p-6">
@@ -663,24 +709,7 @@ export default function DiffChecker() {
               keyValueSorted={comparedState.settings.sortKeyValuePairs}
               isComputing={isComputing}
             >
-              <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
-                <Button
-                  variant={viewMode === "split" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                  onClick={() => setViewMode("split")}
-                >
-                  Split View
-                </Button>
-                <Button
-                  variant={viewMode === "unified" ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                  onClick={() => setViewMode("unified")}
-                >
-                  Unified View
-                </Button>
-              </div>
+              {renderDiffControls()}
             </StatsBar>
 
             {/* Interactive Viewer */}
@@ -753,24 +782,7 @@ export default function DiffChecker() {
                 keyValueSorted={comparedState.settings.sortKeyValuePairs}
                 isComputing={isComputing}
               >
-                <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
-                  <Button
-                    variant={viewMode === "split" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                    onClick={() => setViewMode("split")}
-                  >
-                    Split View
-                  </Button>
-                  <Button
-                    variant={viewMode === "unified" ? "secondary" : "ghost"}
-                    size="icon"
-                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
-                    onClick={() => setViewMode("unified")}
-                  >
-                    Unified View
-                  </Button>
-                </div>
+                {renderDiffControls()}
               </StatsBar>
 
               {/* Interactive Viewer */}

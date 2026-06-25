@@ -9,6 +9,7 @@ export interface DiffEngineOptions {
   ignoreLastLineNewline: boolean
   inlineDiffMode: "char" | "word" | "none"
   sortKeyValuePairs: boolean
+  ignoreKeyValueValueChanges?: boolean
   ignoreEmptyLines: boolean
   ignoreComments: boolean
 }
@@ -38,7 +39,9 @@ export interface UnifiedLine {
 
 interface KeyValueLine {
   key: string
+  displayKey: string
   text: string
+  isKeyValue: boolean
 }
 
 interface KeyedLinePair {
@@ -63,7 +66,9 @@ function parseKeyValueLine(
 
   return {
     key: normalizeKey(match[2], options),
+    displayKey: match[2],
     text: line,
+    isKeyValue: true,
   }
 }
 
@@ -124,6 +129,46 @@ function linesMatch(
   )
 }
 
+function keyedLinesMatch(
+  left: KeyValueLine,
+  right: KeyValueLine,
+  options: DiffEngineOptions
+): boolean {
+  if (
+    options.ignoreKeyValueValueChanges &&
+    left.isKeyValue &&
+    right.isKeyValue &&
+    left.key === right.key
+  ) {
+    return true
+  }
+
+  return linesMatch(left.text, right.text, options)
+}
+
+function displayTextForMatchedKey(
+  left: KeyValueLine,
+  right: KeyValueLine,
+  options: DiffEngineOptions
+): string {
+  if (
+    options.ignoreKeyValueValueChanges &&
+    left.isKeyValue &&
+    right.isKeyValue &&
+    left.key === right.key
+  ) {
+    return left.displayKey
+  }
+
+  return left.text
+}
+
+function stripKeyValueValues(text: string, options: DiffEngineOptions): string {
+  return splitDiffLines(text)
+    .map((line) => parseKeyValueLine(line, options)?.displayKey ?? line)
+    .join("\n")
+}
+
 function buildKeyedLinePairs(
   original: string,
   changed: string,
@@ -149,7 +194,10 @@ function buildKeyedLinePairs(
     if (parsed) {
       addKeyedLine(leftLinesByKey, parsed)
     } else {
-      nonKeyPairs.push({ left: { key: line, text: line }, right: null })
+      nonKeyPairs.push({
+        left: { key: line, displayKey: line, text: line, isKeyValue: false },
+        right: null,
+      })
     }
   })
 
@@ -162,9 +210,17 @@ function buildKeyedLinePairs(
         (pair) => pair.right === null && pair.left?.text === line
       )
       if (matchingPair) {
-        matchingPair.right = { key: line, text: line }
+        matchingPair.right = {
+          key: line,
+          displayKey: line,
+          text: line,
+          isKeyValue: false,
+        }
       } else {
-        nonKeyPairs.push({ left: null, right: { key: line, text: line } })
+        nonKeyPairs.push({
+          left: null,
+          right: { key: line, displayKey: line, text: line, isKeyValue: false },
+        })
       }
     }
   })
@@ -204,7 +260,7 @@ function computeKeyedAlignedDiff(
 
   buildKeyedLinePairs(original, changed, options).forEach(({ left, right }) => {
     if (left && right) {
-      const isMatch = linesMatch(left.text, right.text, options)
+      const isMatch = keyedLinesMatch(left, right, options)
       const { leftSubChanges, rightSubChanges } = isMatch
         ? {}
         : createInlineChanges(left.text, right.text, options)
@@ -272,9 +328,9 @@ function computeKeyedUnifiedDiff(
 
   buildKeyedLinePairs(original, changed, options).forEach(({ left, right }) => {
     if (left && right) {
-      if (linesMatch(left.text, right.text, options)) {
+      if (keyedLinesMatch(left, right, options)) {
         unified.push({
-          text: left.text,
+          text: displayTextForMatchedKey(left, right, options),
           oldLineNumber: oldLineNum++,
           newLineNumber: newLineNum++,
           type: "normal",
@@ -770,8 +826,13 @@ export function computeSimilarity(
   newStr: string,
   options: DiffEngineOptions
 ): number {
-  const original = preprocessText(oldStr, options)
-  const changed = preprocessText(newStr, options)
+  let original = preprocessText(oldStr, options)
+  let changed = preprocessText(newStr, options)
+
+  if (options.sortKeyValuePairs && options.ignoreKeyValueValueChanges) {
+    original = stripKeyValueValues(original, options)
+    changed = stripKeyValueValues(changed, options)
+  }
 
   const s1 = options.caseSensitive ? original : original.toLowerCase()
   const s2 = options.caseSensitive ? changed : changed.toLowerCase()
