@@ -60,7 +60,7 @@ export function TextEditor({
           className="absolute left-0 top-0 bottom-0 select-none pointer-events-none overflow-hidden z-10"
           style={{ width: clientWidth || "100%" }}
         >
-          <div className="flex flex-col pt-4 pb-4">
+          <div className="flex flex-col pt-0 pb-0">
             {lines.map((line, i) => (
               <div
                 key={i}
@@ -94,7 +94,7 @@ export function TextEditor({
         ref={textareaRef}
         onScroll={handleScroll}
         wrap={wrapLines ? "soft" : "off"}
-        className={`min-h-0 flex-1 resize-none overflow-auto border-0 bg-transparent pt-4 pb-4 pr-4 font-mono text-sm focus-visible:ring-0 focus-visible:outline-none ${
+        className={`min-h-0 flex-1 resize-none overflow-auto border-0 bg-transparent pt-0 pb-0 pr-4 font-mono text-sm focus-visible:ring-0 focus-visible:outline-none ${
           showLineNumbers ? "pl-[56px]" : "pl-4"
         } ${
           wrapLines ? "whitespace-pre-wrap break-words" : "whitespace-pre"

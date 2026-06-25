@@ -272,7 +272,7 @@ export default function DiffChecker() {
       <div className={`grid min-h-0 ${isCompact ? "h-[360px] lg:h-[240px] shrink-0" : "flex-1"} grid-cols-1 items-stretch gap-5 lg:grid-cols-2 relative`}>
         {/* Left Input Pane: Original */}
         <Card
-          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs"
+          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs py-0 gap-0"
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, "original")}
         >
@@ -333,7 +333,7 @@ export default function DiffChecker() {
 
         {/* Right Input Pane: Changed */}
         <Card
-          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs"
+          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs py-0 gap-0"
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, "changed")}
         >
