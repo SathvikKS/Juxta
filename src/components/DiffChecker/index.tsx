@@ -395,11 +395,9 @@ export default function DiffChecker() {
       <div className="flex flex-col justify-between gap-4 border-b border-border/80 pb-5 md:flex-row md:items-center">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <div className="rounded-xl bg-primary/10 p-2 text-primary dark:bg-primary/20">
-              <ArrowLeftRight className="h-5 w-5 stroke-[2.5]" />
-            </div>
+            <img src="/juxta.svg" alt="Juxta Logo" className="h-9 w-9 select-none object-contain" />
             <h1 className="bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text text-2xl font-bold tracking-tight text-transparent">
-              Differ
+              Juxta
             </h1>
             <span className="rounded-md border border-border/50 bg-muted/80 px-2 py-0.5 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
               Offline
