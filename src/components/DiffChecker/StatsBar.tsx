@@ -1,10 +1,13 @@
 import { Check, Plus, Minus, Info } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface StatsBarProps {
   similarity: number
   addedCount: number
   removedCount: number
   totalLines: number
+  keyValueSorted?: boolean
+  isComputing?: boolean
   children?: React.ReactNode
 }
 
@@ -13,6 +16,8 @@ export function StatsBar({
   addedCount,
   removedCount,
   totalLines,
+  keyValueSorted,
+  isComputing,
   children,
 }: StatsBarProps) {
   // Similarity badge color
@@ -34,11 +39,22 @@ export function StatsBar({
           <span className="flex items-center gap-1 text-muted-foreground">
             <Info className="h-3.5 w-3.5" /> Similarity:
           </span>
-          <span
-            className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${simColorClass}`}
-          >
-            {similarity}%
-          </span>
+          {isComputing ? (
+            <Skeleton className="h-5 w-12 rounded-full" />
+          ) : (
+            <>
+              <span
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${simColorClass}`}
+              >
+                {similarity}%
+              </span>
+              {keyValueSorted && (
+                <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-semibold text-primary animate-fade-in">
+                  Keys Sorted
+                </span>
+              )}
+            </>
+          )}
         </div>
 
         <div className="hidden h-4 w-px bg-border/80 sm:block" />
@@ -49,9 +65,13 @@ export function StatsBar({
             <Plus className="h-3 w-3 stroke-[3]" />
           </span>
           <span className="text-muted-foreground">Additions:</span>
-          <span className="font-semibold text-green-500">
-            {addedCount} {addedCount === 1 ? "line" : "lines"}
-          </span>
+          {isComputing ? (
+            <Skeleton className="h-4 w-14" />
+          ) : (
+            <span className="font-semibold text-green-500">
+              {addedCount} {addedCount === 1 ? "line" : "lines"}
+            </span>
+          )}
         </div>
 
         <div className="hidden h-4 w-px bg-border/80 sm:block" />
@@ -62,9 +82,13 @@ export function StatsBar({
             <Minus className="h-3 w-3 stroke-[3]" />
           </span>
           <span className="text-muted-foreground">Deletions:</span>
-          <span className="font-semibold text-red-500">
-            {removedCount} {removedCount === 1 ? "line" : "lines"}
-          </span>
+          {isComputing ? (
+            <Skeleton className="h-4 w-14" />
+          ) : (
+            <span className="font-semibold text-red-500">
+              {removedCount} {removedCount === 1 ? "line" : "lines"}
+            </span>
+          )}
         </div>
 
         <div className="hidden h-4 w-px bg-border/80 sm:block" />
@@ -75,7 +99,11 @@ export function StatsBar({
             <Check className="h-3 w-3 stroke-[3]" />
           </span>
           <span className="text-muted-foreground">Aligned Rows:</span>
-          <span className="font-semibold text-blue-500">{totalLines}</span>
+          {isComputing ? (
+            <Skeleton className="h-4 w-8" />
+          ) : (
+            <span className="font-semibold text-blue-500">{totalLines}</span>
+          )}
         </div>
       </div>
       {children && (

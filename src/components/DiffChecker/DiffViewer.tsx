@@ -3,6 +3,7 @@ import type { Change } from "diff"
 import type { AlignedLine, UnifiedLine } from "@/lib/diffEngine"
 import { Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Tooltip,
   TooltipContent,
@@ -19,6 +20,7 @@ interface DiffViewerProps {
   scrollLock: boolean
   originalText: string
   changedText: string
+  isComputing?: boolean
 }
 
 export function DiffViewer({
@@ -30,6 +32,7 @@ export function DiffViewer({
   scrollLock,
   originalText,
   changedText,
+  isComputing,
 }: DiffViewerProps) {
   const leftScrollRef = React.useRef<HTMLDivElement>(null)
   const rightScrollRef = React.useRef<HTMLDivElement>(null)
@@ -176,6 +179,45 @@ export function DiffViewer({
   const lineWrapClass = wrapLines
     ? "whitespace-pre-wrap break-words"
     : "whitespace-pre overflow-x-auto"
+
+  // Stable skeleton line widths — computed once, not on every render
+  const skeletonWidths = React.useMemo(
+    () => Array.from({ length: 36 }, (_, i) => 35 + ((i * 37 + 17) % 56)),
+    []
+  )
+
+  if (isComputing) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
+        <div className="flex shrink-0 divide-x divide-border border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground">
+          <div className="flex w-1/2 items-center px-4 py-1.5">
+            <Skeleton className="h-3.5 w-28" />
+          </div>
+          <div className="flex w-1/2 items-center px-4 py-1.5">
+            <Skeleton className="h-3.5 w-28" />
+          </div>
+        </div>
+        <div className="flex min-h-0 flex-1 divide-x divide-border bg-background">
+          <div className="h-full w-1/2 space-y-0 overflow-hidden">
+            {Array.from({ length: 18 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-[7px] border-b border-border/5">
+                {showLineNumbers && <Skeleton className="h-3 w-7 shrink-0" />}
+                <Skeleton className="h-3.5" style={{ width: `${skeletonWidths[i]}%` }} />
+              </div>
+            ))}
+          </div>
+          <div className="h-full w-1/2 space-y-0 overflow-hidden">
+            {Array.from({ length: 18 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-[7px] border-b border-border/5">
+                {showLineNumbers && <Skeleton className="h-3 w-7 shrink-0" />}
+                <Skeleton className="h-3.5" style={{ width: `${skeletonWidths[18 + i]}%` }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (viewMode === "split") {
     const rowWidthClass = wrapLines ? "w-full min-w-0" : "min-w-max"

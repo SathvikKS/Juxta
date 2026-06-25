@@ -31,7 +31,38 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { SETTINGS_SCHEMA, SETTINGS_CATEGORIES } from "./settingsSchema"
 import type { SettingCategory, SettingDefinition } from "./settingsSchema"
 
+export type PresetType = "none" | "env"
+
+export interface PresetDefinition {
+  id: PresetType
+  label: string
+  settings: Partial<DiffSettings>
+}
+
+export const PRESETS: Record<PresetType, PresetDefinition> = {
+  none: {
+    id: "none",
+    label: "None (Custom)",
+    settings: {},
+  },
+  env: {
+    id: "env",
+    label: ".env",
+    settings: {
+      sortKeyValuePairs: true,
+      ignoreEmptyLines: true,
+      ignoreComments: true,
+      whitespaceSensitive: false,
+      trimWhitespace: true,
+      lineEndingSensitive: false,
+    },
+  },
+}
+
 export interface DiffSettings {
+  sortKeyValuePairs: boolean
+  ignoreEmptyLines: boolean
+  ignoreComments: boolean
   caseSensitive: boolean
   whitespaceSensitive: boolean
   trimWhitespace: boolean
@@ -43,9 +74,14 @@ export interface DiffSettings {
   wrapLines: boolean
   scrollLock: boolean
   disableSpellCheck: boolean
+  preset: PresetType
+  autoDetectPresets: boolean
 }
 
 export const DEFAULT_SETTINGS: DiffSettings = {
+  sortKeyValuePairs: false,
+  ignoreEmptyLines: false,
+  ignoreComments: false,
   caseSensitive: true,
   whitespaceSensitive: true,
   trimWhitespace: false,
@@ -57,6 +93,21 @@ export const DEFAULT_SETTINGS: DiffSettings = {
   wrapLines: true,
   scrollLock: true,
   disableSpellCheck: true,
+  preset: "none",
+  autoDetectPresets: true,
+}
+
+export function checkPresetStatus(settings: DiffSettings): DiffSettings {
+  const envSettings = PRESETS.env.settings
+  const matchesEnv = Object.entries(envSettings).every(
+    ([key, val]) => settings[key as keyof DiffSettings] === val
+  )
+
+  const expectedPreset = matchesEnv ? "env" : "none"
+  if (settings.preset !== expectedPreset) {
+    return { ...settings, preset: expectedPreset }
+  }
+  return settings
 }
 
 interface SettingsPanelProps {
@@ -86,10 +137,12 @@ export function SettingsPanel({
     key: K,
     value: DiffSettings[K]
   ) => {
-    onSettingsChange({
-      ...settings,
-      [key]: value,
-    })
+    onSettingsChange(
+      checkPresetStatus({
+        ...settings,
+        [key]: value,
+      })
+    )
   }
 
   const handleReset = () => {
@@ -117,19 +170,29 @@ export function SettingsPanel({
       isHighlighted ? "animate-pulse-highlight" : ""
     } ${isLast ? "pb-1" : "border-b border-border/40 pb-3"}`
 
+    const isMandated =
+      settings.preset !== "none" &&
+      PRESETS[settings.preset]?.settings &&
+      item.key in PRESETS[settings.preset].settings
+
     if (item.type === "switch") {
       const checkedValue = settings[item.key as keyof DiffSettings] as boolean
 
       return (
         <div key={item.key} className={itemWrapperClass}>
           <div className="flex flex-col gap-1 pr-4">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Label
                 htmlFor={item.key}
                 className="cursor-pointer text-sm font-medium"
               >
                 {item.label}
               </Label>
+              {isMandated && (
+                <span className="inline-flex items-center rounded-xs bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary select-none animate-fade-in shrink-0">
+                  Preset Mandated
+                </span>
+              )}
               {item.tooltip && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -167,8 +230,13 @@ export function SettingsPanel({
       return (
         <div key={item.key} className={itemWrapperClass}>
           <div className="flex flex-col gap-1 pr-4">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Label className="text-sm font-medium">{item.label}</Label>
+              {isMandated && (
+                <span className="inline-flex items-center rounded-xs bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary select-none animate-fade-in shrink-0">
+                  Preset Mandated
+                </span>
+              )}
               {item.tooltip && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -222,13 +290,18 @@ export function SettingsPanel({
       return (
         <div key={item.key} className={itemWrapperClass}>
           <div className="flex flex-col gap-1 pr-4">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Label
                 htmlFor={item.key}
                 className="cursor-pointer text-sm font-medium"
               >
                 {item.label}
               </Label>
+              {isMandated && (
+                <span className="inline-flex items-center rounded-xs bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary select-none animate-fade-in shrink-0">
+                  Preset Mandated
+                </span>
+              )}
               {item.tooltip && (
                 <Tooltip>
                   <TooltipTrigger asChild>
