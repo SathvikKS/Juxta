@@ -35,6 +35,7 @@ export interface DiffSettings {
   whitespaceSensitive: boolean
   trimWhitespace: boolean
   lineEndingSensitive: boolean
+  ignoreLastLineNewline: boolean
   inlineDiffMode: "char" | "word" | "none"
   autoCompare: number
   showLineNumbers: boolean
@@ -47,6 +48,7 @@ export const DEFAULT_SETTINGS: DiffSettings = {
   whitespaceSensitive: true,
   trimWhitespace: false,
   lineEndingSensitive: false,
+  ignoreLastLineNewline: false,
   inlineDiffMode: "char",
   autoCompare: -1,
   showLineNumbers: true,
@@ -274,6 +276,40 @@ export function SettingsPanel({
                       checked={settings.lineEndingSensitive}
                       onCheckedChange={(val) =>
                         updateSetting("lineEndingSensitive", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Ignore Last Line Newline */}
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="ignoreLastLineNewline"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Ignore Last Line Newline
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3.5 w-3.5 cursor-pointer text-muted-foreground hover:text-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-[240px] text-xs">
+                              When enabled, any trailing newline character at the end of the file/text is ignored during comparison.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Do not treat trailing final newline as a difference
+                      </span>
+                    </div>
+                    <Switch
+                      id="ignoreLastLineNewline"
+                      checked={settings.ignoreLastLineNewline}
+                      onCheckedChange={(val) =>
+                        updateSetting("ignoreLastLineNewline", val)
                       }
                     />
                   </div>

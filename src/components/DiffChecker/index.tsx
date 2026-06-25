@@ -170,7 +170,7 @@ export default function DiffChecker() {
     const sim = computeSimilarity(
       comparedState.original,
       comparedState.changed,
-      comparedState.settings.caseSensitive
+      comparedState.settings
     )
     return { alignedLines: aligned, unifiedLines: unified, similarity: sim }
   }, [comparedState])

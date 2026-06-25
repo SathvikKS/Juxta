@@ -6,6 +6,7 @@ export interface DiffEngineOptions {
   whitespaceSensitive: boolean
   trimWhitespace: boolean
   lineEndingSensitive: boolean
+  ignoreLastLineNewline: boolean
   inlineDiffMode: "char" | "word" | "none"
 }
 
@@ -49,6 +50,15 @@ function preprocessText(text: string, options: DiffEngineOptions): string {
       .split("\n")
       .map((line) => line.trimEnd())
       .join("\n")
+  }
+
+  // Ignore last line newline if enabled
+  if (options.ignoreLastLineNewline) {
+    if (processed.endsWith("\n")) {
+      processed = processed.slice(0, -1)
+    } else if (processed.endsWith("\r")) {
+      processed = processed.slice(0, -1)
+    }
   }
 
   return processed
@@ -337,10 +347,13 @@ export function computeUnifiedDiff(
 export function computeSimilarity(
   oldStr: string,
   newStr: string,
-  caseSensitive: boolean
+  options: DiffEngineOptions
 ): number {
-  const s1 = caseSensitive ? oldStr : oldStr.toLowerCase()
-  const s2 = caseSensitive ? newStr : newStr.toLowerCase()
+  const original = preprocessText(oldStr, options)
+  const changed = preprocessText(newStr, options)
+
+  const s1 = options.caseSensitive ? original : original.toLowerCase()
+  const s2 = options.caseSensitive ? changed : changed.toLowerCase()
 
   if (!s1 && !s2) return 100
   if (!s1 || !s2) return 0
