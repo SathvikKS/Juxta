@@ -8,6 +8,8 @@ export interface DiffEngineOptions {
   lineEndingSensitive: boolean
   ignoreLastLineNewline: boolean
   inlineDiffMode: "char" | "word" | "none"
+  sortKeyValuePairs: boolean
+  ignoreEmptyLines: boolean
 }
 
 export interface AlignedLine {
@@ -34,6 +36,81 @@ export interface UnifiedLine {
 }
 
 /**
+ * Sorts key-value blocks in text alphabetically by key, keeping comments grouped with their corresponding keys.
+ */
+export function sortKeyValuePairs(text: string): string {
+  const lines = text.split(/\r?\n/)
+  interface Block {
+    key: string
+    rawLines: string[]
+  }
+  const blocks: Block[] = []
+  let headerLines: string[] = []
+  let accumulatedLines: string[] = []
+  let foundFirstKey = false
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    const isCommentOrBlank =
+      trimmed === "" ||
+      trimmed.startsWith("#") ||
+      trimmed.startsWith("//") ||
+      trimmed.startsWith(";")
+    const match = line.match(/^[ \t]*([A-Za-z0-9_.-]+)[ \t]*[=:][ \t]*(.*)$/)
+
+    if (match && !isCommentOrBlank) {
+      const key = match[1]
+      foundFirstKey = true
+      blocks.push({
+        key,
+        rawLines: [...accumulatedLines, line],
+      })
+      accumulatedLines = []
+    } else {
+      if (isCommentOrBlank) {
+        if (!foundFirstKey) {
+          headerLines.push(line)
+        } else {
+          accumulatedLines.push(line)
+        }
+      } else {
+        // Continuation line of the last block
+        if (blocks.length > 0) {
+          blocks[blocks.length - 1].rawLines.push(line)
+        } else {
+          if (!foundFirstKey) {
+            headerLines.push(line)
+          } else {
+            accumulatedLines.push(line)
+          }
+        }
+      }
+    }
+  }
+
+  // Sort blocks by key alphabetically (case-insensitive, natural numeric order)
+  blocks.sort((a, b) =>
+    a.key.localeCompare(b.key, undefined, { sensitivity: "base", numeric: true })
+  )
+
+  // Combine everything
+  const resultLines: string[] = []
+
+  // Output header lines first
+  resultLines.push(...headerLines)
+
+  // Output sorted key-value blocks
+  for (const block of blocks) {
+    resultLines.push(...block.rawLines)
+  }
+
+  // Output trailing lines
+  resultLines.push(...accumulatedLines)
+
+  return resultLines.join("\n")
+}
+
+/**
  * Normalizes text lines and pre-processes based on settings
  */
 function preprocessText(text: string, options: DiffEngineOptions): string {
@@ -42,6 +119,19 @@ function preprocessText(text: string, options: DiffEngineOptions): string {
   // Normalize line endings to LF unless line ending sensitive
   if (!options.lineEndingSensitive) {
     processed = processed.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
+  }
+
+  // Ignore empty lines if enabled
+  if (options.ignoreEmptyLines) {
+    processed = processed
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .join("\n")
+  }
+
+  // Sort key-value pairs if enabled
+  if (options.sortKeyValuePairs) {
+    processed = sortKeyValuePairs(processed)
   }
 
   // Trim spaces on each line if enabled

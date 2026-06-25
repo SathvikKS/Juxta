@@ -55,6 +55,22 @@ export const SETTINGS_CATEGORIES: { value: SettingCategory; label: string }[] = 
 export const SETTINGS_SCHEMA: SettingDefinition[] = [
   // Comparison Settings
   {
+    key: "sortKeyValuePairs",
+    label: "Sort Key-Value Pairs",
+    description: "Align and sort environment or properties files by key",
+    tooltip: "When enabled, lines matching KEY=VALUE (like .env or .properties files) will be sorted alphabetically by key before comparison. This ignores differences caused purely by key reordering.",
+    category: "comparison",
+    type: "switch",
+  },
+  {
+    key: "ignoreEmptyLines",
+    label: "Ignore Empty Lines",
+    description: "Do not show empty lines as differences",
+    tooltip: "When enabled, empty or blank lines are skipped during comparison, preventing them from showing up as additions or deletions.",
+    category: "comparison",
+    type: "switch",
+  },
+  {
     key: "caseSensitive",
     label: "Case Sensitive",
     description: "Distinguish uppercase and lowercase",
@@ -150,6 +166,14 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     ],
   },
   // Behavior Settings
+  {
+    key: "autoDetectPresets",
+    label: "Auto-Detect Presets",
+    description: "Suggest presets based on input text format",
+    tooltip: "When enabled, Juxta will analyze your input text and suggest applying suitable presets (like .env files) if it detects matching formats.",
+    category: "behavior",
+    type: "switch",
+  },
   {
     key: "autoCompare",
     label: "Auto-Compare (ms)",

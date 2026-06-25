@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { useTheme } from "@/components/theme-provider"
 import { SETTINGS_SCHEMA } from "./settingsSchema"
+import { checkPresetStatus, PRESETS } from "./SettingsPanel"
 import type { DiffSettings } from "./SettingsPanel"
 import type { SettingCategory } from "./settingsSchema"
 import {
@@ -178,28 +179,34 @@ export function CommandMenu({
   }
 
   const toggleSwitchSetting = (key: keyof DiffSettings) => {
-    onSettingsChange({
-      ...settings,
-      [key]: !settings[key],
-    })
+    onSettingsChange(
+      checkPresetStatus({
+        ...settings,
+        [key]: !settings[key],
+      })
+    )
   }
 
   const setSelectSetting = (key: keyof DiffSettings | "theme", value: any) => {
     if (key === "theme") {
       setTheme(value)
     } else {
-      onSettingsChange({
-        ...settings,
-        [key]: value,
-      })
+      onSettingsChange(
+        checkPresetStatus({
+          ...settings,
+          [key]: value,
+        })
+      )
     }
   }
 
   const setNumericSetting = (key: keyof DiffSettings, value: number, shouldClose = false) => {
-    onSettingsChange({
-      ...settings,
-      [key]: value,
-    })
+    onSettingsChange(
+      checkPresetStatus({
+        ...settings,
+        [key]: value,
+      })
+    )
     if (shouldClose) {
       onOpenChange(false)
     }
@@ -345,6 +352,11 @@ export function CommandMenu({
               {/* Group 2: Settings Options (Prioritized second) */}
               <CommandGroup heading="Settings Options">
                 {SETTINGS_SCHEMA.map((setting) => {
+                  const isMandated =
+                    settings.preset !== "none" &&
+                    PRESETS[settings.preset]?.settings &&
+                    setting.key in PRESETS[settings.preset].settings
+
                   if (setting.type === "switch") {
                     const isChecked = settings[setting.key as keyof DiffSettings] as boolean
                     return (
@@ -359,7 +371,14 @@ export function CommandMenu({
                             {getSettingIcon(setting.key)}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="font-medium text-sm text-foreground">{setting.label}</span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-medium text-sm text-foreground">{setting.label}</span>
+                              {isMandated && (
+                                <span className="inline-flex items-center rounded-xs bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary select-none shrink-0">
+                                  Preset Mandated
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[11px] text-muted-foreground truncate">
                               {setting.description}
                             </span>
@@ -406,9 +425,16 @@ export function CommandMenu({
                                   {optionIcon}
                                 </div>
                                 <div className="flex flex-col min-w-0">
-                                  <span className="font-medium text-sm text-foreground">
-                                    Set {setting.label} to{" "}
-                                    <strong className="text-primary font-semibold">{opt.label}</strong>
+                                  <span className="font-medium text-sm text-foreground flex items-center gap-1.5 flex-wrap">
+                                    <span>
+                                      Set {setting.label} to{" "}
+                                      <strong className="text-primary font-semibold">{opt.label}</strong>
+                                    </span>
+                                    {isMandated && (
+                                      <span className="inline-flex items-center rounded-xs bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary select-none shrink-0">
+                                        Preset Mandated
+                                      </span>
+                                    )}
                                   </span>
                                   <span className="text-[11px] text-muted-foreground truncate">
                                     {setting.description}

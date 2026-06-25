@@ -5,6 +5,7 @@ interface StatsBarProps {
   addedCount: number
   removedCount: number
   totalLines: number
+  keyValueSorted?: boolean
   children?: React.ReactNode
 }
 
@@ -13,8 +14,9 @@ export function StatsBar({
   addedCount,
   removedCount,
   totalLines,
+  keyValueSorted,
   children,
-}: StatsBarProps) {
+ }: StatsBarProps) {
   // Similarity badge color
   let simColorClass =
     "bg-red-500/10 text-red-500 border-red-500/20 dark:bg-red-500/20"
@@ -39,6 +41,11 @@ export function StatsBar({
           >
             {similarity}%
           </span>
+          {keyValueSorted && (
+            <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-[10px] font-semibold text-primary animate-fade-in">
+              Keys Sorted
+            </span>
+          )}
         </div>
 
         <div className="hidden h-4 w-px bg-border/80 sm:block" />

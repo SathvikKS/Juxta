@@ -8,17 +8,30 @@ import {
   ArrowLeft,
   Sparkles,
   Search,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Kbd } from "@/components/ui/kbd"
-import { SettingsPanel, DEFAULT_SETTINGS } from "./SettingsPanel"
-import type { DiffSettings } from "./SettingsPanel"
+import {
+  SettingsPanel,
+  DEFAULT_SETTINGS,
+  PRESETS,
+  checkPresetStatus,
+} from "./SettingsPanel"
+import type { DiffSettings, PresetType } from "./SettingsPanel"
 import type { SettingCategory } from "./settingsSchema"
 import { CommandMenu } from "./CommandMenu"
 import { StatsBar } from "./StatsBar"
 import { DiffViewer } from "./DiffViewer"
 import { TextEditor } from "./TextEditor"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   computeAlignedDiff,
   computeUnifiedDiff,
@@ -51,6 +64,36 @@ function greet(user) {
 
 greet({ name: "Alice", displayName: "Ally", role: "admin" });`
 
+function isKeyValueFormat(text: string): boolean {
+  if (!text || text.trim() === "") return false
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l !== "" && !l.startsWith("#") && !l.startsWith("//") && !l.startsWith(";"))
+
+  if (lines.length === 0) return false
+
+  // Check if the text contains JSON/CSS/JS/TS structural indicators to avoid false positives
+  if (
+    text.includes("{") ||
+    text.includes("}") ||
+    text.includes("const ") ||
+    text.includes("let ") ||
+    text.includes("import ")
+  ) {
+    return false
+  }
+
+  let matchCount = 0
+  const linesToTest = lines.slice(0, 30)
+  for (const line of linesToTest) {
+    if (/^[A-Za-z0-9_.-]+\s*[=:]/.test(line)) {
+      matchCount++
+    }
+  }
+  return matchCount / linesToTest.length > 0.7
+}
+
 export default function DiffChecker() {
   // Texts
   const [originalText, setOriginalText] = React.useState<string>(() => {
@@ -59,6 +102,9 @@ export default function DiffChecker() {
   const [changedText, setChangedText] = React.useState<string>(() => {
     return localStorage.getItem("diff_changed_text") ?? SAMPLE_CHANGED
   })
+
+  // Preset dismiss tip state
+  const [dismissedKeyValTip, setDismissedKeyValTip] = React.useState(false)
 
   // File names & sizes (if uploaded)
   const [originalFile, setOriginalFile] = React.useState<{
@@ -75,7 +121,7 @@ export default function DiffChecker() {
     const saved = localStorage.getItem("diff_settings")
     if (saved) {
       try {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) }
+        return checkPresetStatus({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) })
       } catch {
         return DEFAULT_SETTINGS
       }
@@ -197,6 +243,69 @@ export default function DiffChecker() {
       return () => clearTimeout(timer)
     }
   }, [settings.autoCompare])
+
+  // Detect if key-value file format is inputted
+  const isKeyValueDetected = React.useMemo(() => {
+    return isKeyValueFormat(originalText) || isKeyValueFormat(changedText)
+  }, [originalText, changedText])
+
+  const handleApplyPreset = (presetId: PresetType) => {
+    if (presetId === "none") {
+      setSettings((prev) => ({
+        ...prev,
+        preset: "none",
+      }))
+    } else {
+      const presetConfig = PRESETS[presetId].settings
+      setSettings((prev) =>
+        checkPresetStatus({
+          ...prev,
+          ...presetConfig,
+          preset: presetId,
+        })
+      )
+    }
+  }
+
+  const showKeyValBanner =
+    settings.autoDetectPresets &&
+    isKeyValueDetected &&
+    settings.preset !== "env" &&
+    !dismissedKeyValTip
+
+  const renderPresetRecommendationBanner = () => {
+    if (!showKeyValBanner) return null
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-xs md:text-sm animate-fade-in shrink-0">
+        <div className="flex items-center gap-2.5">
+          <Sparkles className="h-4.5 w-4.5 text-primary shrink-0 animate-pulse" />
+          <span className="text-muted-foreground">
+            <strong className="text-foreground font-semibold">Environment/Properties format detected.</strong>{" "}
+            Apply the <span className="font-semibold text-primary">.env</span> preset to sort keys and ignore formatting differences?
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs font-semibold px-2.5 hover:bg-primary/15 hover:text-primary cursor-pointer"
+            onClick={() => handleApplyPreset("env")}
+          >
+            Apply Preset
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer rounded-md"
+            onClick={() => setDismissedKeyValTip(true)}
+            title="Dismiss suggestion"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   // Compute actual visual diffs based strictly on comparedState using useMemo
   const { alignedLines, unifiedLines, similarity } = React.useMemo(() => {
@@ -450,6 +559,23 @@ export default function DiffChecker() {
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
+          <Select
+            value={settings.preset}
+            onValueChange={(val) => handleApplyPreset(val as PresetType)}
+          >
+            <SelectTrigger className="w-[150px] h-9 cursor-pointer text-xs font-semibold border-border bg-background shadow-xs">
+              <SelectValue placeholder="Preset: None" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none" className="cursor-pointer text-xs">
+                Preset: None
+              </SelectItem>
+              <SelectItem value="env" className="cursor-pointer text-xs">
+                Preset: .env
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
           <Button
             variant="outline"
             size="sm"
@@ -494,12 +620,14 @@ export default function DiffChecker() {
           {renderInputPanes(true)}
           
           <div className="flex min-h-0 flex-1 flex-col gap-3">
+            {renderPresetRecommendationBanner()}
             {/* Stats Bar with View Switcher */}
             <StatsBar
               similarity={similarity}
               addedCount={addedCount}
               removedCount={removedCount}
               totalLines={totalLines}
+              keyValueSorted={comparedState.settings.sortKeyValuePairs}
             >
               <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
                 <Button
@@ -580,12 +708,14 @@ export default function DiffChecker() {
               className="flex h-full w-1/2 flex-col gap-4 px-1"
               inert={activeTab !== "diff"}
             >
+              {renderPresetRecommendationBanner()}
               {/* Stats Bar with View Switcher */}
               <StatsBar
                 similarity={similarity}
                 addedCount={addedCount}
                 removedCount={removedCount}
                 totalLines={totalLines}
+                keyValueSorted={comparedState.settings.sortKeyValuePairs}
               >
                 <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
                   <Button
