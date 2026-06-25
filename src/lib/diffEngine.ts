@@ -36,6 +36,298 @@ export interface UnifiedLine {
   subChanges?: Change[]
 }
 
+interface KeyValueLine {
+  key: string
+  text: string
+}
+
+interface KeyedLinePair {
+  left: KeyValueLine | null
+  right: KeyValueLine | null
+}
+
+const KEY_VALUE_PATTERN = /^([ \t]*)([A-Za-z0-9_.-]+)[ \t]*[=:][ \t]*(.*)$/
+
+function normalizeKey(key: string, options: DiffEngineOptions): string {
+  return options.caseSensitive ? key : key.toLowerCase()
+}
+
+function parseKeyValueLine(
+  line: string,
+  options: DiffEngineOptions
+): KeyValueLine | null {
+  const match = line.match(KEY_VALUE_PATTERN)
+  if (!match) {
+    return null
+  }
+
+  return {
+    key: normalizeKey(match[2], options),
+    text: line,
+  }
+}
+
+function splitDiffLines(text: string): string[] {
+  const lines = text.split("\n")
+  if (lines[lines.length - 1] === "") {
+    lines.pop()
+  }
+  return lines
+}
+
+function createInlineChanges(
+  leftLine: string,
+  rightLine: string,
+  options: DiffEngineOptions
+): { leftSubChanges?: Change[]; rightSubChanges?: Change[] } {
+  if (options.inlineDiffMode === "none") {
+    return {}
+  }
+
+  const subDiffOptions = { ignoreCase: !options.caseSensitive }
+  const charDiff =
+    options.inlineDiffMode === "char"
+      ? diffChars(leftLine, rightLine, subDiffOptions)
+      : diffWordsWithSpace(leftLine, rightLine, subDiffOptions)
+
+  return {
+    leftSubChanges: charDiff.filter((c) => !c.added),
+    rightSubChanges: charDiff.filter((c) => !c.removed),
+  }
+}
+
+function normalizeComparableLine(
+  line: string,
+  options: DiffEngineOptions
+): string {
+  let comparable = line
+
+  if (!options.whitespaceSensitive) {
+    comparable = comparable.replace(/\s+/g, "")
+  }
+
+  if (!options.caseSensitive) {
+    comparable = comparable.toLowerCase()
+  }
+
+  return comparable
+}
+
+function linesMatch(
+  leftLine: string,
+  rightLine: string,
+  options: DiffEngineOptions
+): boolean {
+  return (
+    normalizeComparableLine(leftLine, options) ===
+    normalizeComparableLine(rightLine, options)
+  )
+}
+
+function buildKeyedLinePairs(
+  original: string,
+  changed: string,
+  options: DiffEngineOptions
+): KeyedLinePair[] {
+  const leftLines = splitDiffLines(original)
+  const rightLines = splitDiffLines(changed)
+  const leftLinesByKey = new Map<string, KeyValueLine[]>()
+  const rightLinesByKey = new Map<string, KeyValueLine[]>()
+  const nonKeyPairs: KeyedLinePair[] = []
+
+  const addKeyedLine = (
+    map: Map<string, KeyValueLine[]>,
+    item: KeyValueLine
+  ) => {
+    const existing = map.get(item.key) ?? []
+    existing.push(item)
+    map.set(item.key, existing)
+  }
+
+  leftLines.forEach((line) => {
+    const parsed = parseKeyValueLine(line, options)
+    if (parsed) {
+      addKeyedLine(leftLinesByKey, parsed)
+    } else {
+      nonKeyPairs.push({ left: { key: line, text: line }, right: null })
+    }
+  })
+
+  rightLines.forEach((line) => {
+    const parsed = parseKeyValueLine(line, options)
+    if (parsed) {
+      addKeyedLine(rightLinesByKey, parsed)
+    } else {
+      const matchingPair = nonKeyPairs.find(
+        (pair) => pair.right === null && pair.left?.text === line
+      )
+      if (matchingPair) {
+        matchingPair.right = { key: line, text: line }
+      } else {
+        nonKeyPairs.push({ left: null, right: { key: line, text: line } })
+      }
+    }
+  })
+
+  const keys = [...new Set([...leftLinesByKey.keys(), ...rightLinesByKey.keys()])]
+  keys.sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base", numeric: true })
+  )
+
+  const keyedPairs = keys.flatMap((key) => {
+    const leftItems = leftLinesByKey.get(key) ?? []
+    const rightItems = rightLinesByKey.get(key) ?? []
+    const maxItems = Math.max(leftItems.length, rightItems.length)
+    const pairs: KeyedLinePair[] = []
+
+    for (let i = 0; i < maxItems; i++) {
+      pairs.push({
+        left: leftItems[i] ?? null,
+        right: rightItems[i] ?? null,
+      })
+    }
+
+    return pairs
+  })
+
+  return [...nonKeyPairs, ...keyedPairs]
+}
+
+function computeKeyedAlignedDiff(
+  original: string,
+  changed: string,
+  options: DiffEngineOptions
+): AlignedLine[] {
+  const aligned: AlignedLine[] = []
+  let leftLineNum = 1
+  let rightLineNum = 1
+
+  buildKeyedLinePairs(original, changed, options).forEach(({ left, right }) => {
+    if (left && right) {
+      const isMatch = linesMatch(left.text, right.text, options)
+      const { leftSubChanges, rightSubChanges } = isMatch
+        ? {}
+        : createInlineChanges(left.text, right.text, options)
+
+      aligned.push({
+        left: {
+          text: left.text,
+          lineNumber: leftLineNum++,
+          type: isMatch ? "normal" : "removed",
+          subChanges: leftSubChanges,
+        },
+        right: {
+          text: right.text,
+          lineNumber: rightLineNum++,
+          type: isMatch ? "normal" : "added",
+          subChanges: rightSubChanges,
+        },
+      })
+      return
+    }
+
+    if (left) {
+      aligned.push({
+        left: {
+          text: left.text,
+          lineNumber: leftLineNum++,
+          type: "removed",
+        },
+        right: {
+          text: "",
+          lineNumber: null,
+          type: "empty",
+        },
+      })
+      return
+    }
+
+    if (right) {
+      aligned.push({
+        left: {
+          text: "",
+          lineNumber: null,
+          type: "empty",
+        },
+        right: {
+          text: right.text,
+          lineNumber: rightLineNum++,
+          type: "added",
+        },
+      })
+    }
+  })
+
+  return aligned
+}
+
+function computeKeyedUnifiedDiff(
+  original: string,
+  changed: string,
+  options: DiffEngineOptions
+): UnifiedLine[] {
+  const unified: UnifiedLine[] = []
+  let oldLineNum = 1
+  let newLineNum = 1
+
+  buildKeyedLinePairs(original, changed, options).forEach(({ left, right }) => {
+    if (left && right) {
+      if (linesMatch(left.text, right.text, options)) {
+        unified.push({
+          text: left.text,
+          oldLineNumber: oldLineNum++,
+          newLineNumber: newLineNum++,
+          type: "normal",
+        })
+        return
+      }
+
+      const { leftSubChanges, rightSubChanges } = createInlineChanges(
+        left.text,
+        right.text,
+        options
+      )
+
+      unified.push({
+        text: left.text,
+        oldLineNumber: oldLineNum++,
+        newLineNumber: null,
+        type: "removed",
+        subChanges: leftSubChanges,
+      })
+      unified.push({
+        text: right.text,
+        oldLineNumber: null,
+        newLineNumber: newLineNum++,
+        type: "added",
+        subChanges: rightSubChanges,
+      })
+      return
+    }
+
+    if (left) {
+      unified.push({
+        text: left.text,
+        oldLineNumber: oldLineNum++,
+        newLineNumber: null,
+        type: "removed",
+      })
+      return
+    }
+
+    if (right) {
+      unified.push({
+        text: right.text,
+        oldLineNumber: null,
+        newLineNumber: newLineNum++,
+        type: "added",
+      })
+    }
+  })
+
+  return unified
+}
+
 /**
  * Sorts key-value blocks in text alphabetically by key, keeping comments grouped with their corresponding keys.
  */
@@ -46,7 +338,7 @@ export function sortKeyValuePairs(text: string): string {
     rawLines: string[]
   }
   const blocks: Block[] = []
-  let headerLines: string[] = []
+  const headerLines: string[] = []
   let accumulatedLines: string[] = []
   let foundFirstKey = false
 
@@ -196,6 +488,10 @@ export function computeAlignedDiff(
   const original = preprocessText(oldStr, options)
   const changed = preprocessText(newStr, options)
 
+  if (options.sortKeyValuePairs) {
+    return computeKeyedAlignedDiff(original, changed, options)
+  }
+
   const diffOptions = {
     ignoreCase: !options.caseSensitive,
     ignoreWhitespace: !options.whitespaceSensitive,
@@ -340,6 +636,10 @@ export function computeUnifiedDiff(
 ): UnifiedLine[] {
   const original = preprocessText(oldStr, options)
   const changed = preprocessText(newStr, options)
+
+  if (options.sortKeyValuePairs) {
+    return computeKeyedUnifiedDiff(original, changed, options)
+  }
 
   const diffOptions = {
     ignoreCase: !options.caseSensitive,
