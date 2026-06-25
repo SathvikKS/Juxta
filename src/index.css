@@ -163,3 +163,23 @@
     background: transparent;
   }
 }
+
+@keyframes pulse-highlight {
+  0% {
+    background-color: color-mix(in oklab, var(--primary) 22%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 35%, transparent);
+  }
+  50% {
+    background-color: color-mix(in oklab, var(--primary) 12%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 20%, transparent);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.animate-pulse-highlight {
+  animation: pulse-highlight 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  border-radius: var(--radius-sm);
+}

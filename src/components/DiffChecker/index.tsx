@@ -87,6 +87,7 @@ export default function DiffChecker() {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [settingsActiveTab, setSettingsActiveTab] = React.useState<SettingCategory>("comparison")
   const [highlightedSetting, setHighlightedSetting] = React.useState<string | null>(null)
+  const [isCommandMenuOpen, setIsCommandMenuOpen] = React.useState(false)
 
   const handleOpenSettingsPanel = (category: SettingCategory, key: string) => {
     setSettingsActiveTab(category)
@@ -452,7 +453,29 @@ export default function DiffChecker() {
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
-          <SettingsPanel settings={settings} onSettingsChange={setSettings} />
+          <Button
+            variant="outline"
+            size="sm"
+            className="cursor-pointer gap-2 shadow-xs"
+            onClick={() => setIsCommandMenuOpen(true)}
+          >
+            <Search className="h-4 w-4" />
+            <span>Search</span>
+            <Kbd className="ml-0.5 text-[10px] scale-90 border-muted-foreground/30 bg-muted/50 text-muted-foreground select-none">
+              {isMac ? "⌘" : "Ctrl"}K
+            </Kbd>
+          </Button>
+
+          <SettingsPanel
+            settings={settings}
+            onSettingsChange={setSettings}
+            isOpen={isSettingsOpen}
+            onOpenChange={setIsSettingsOpen}
+            activeTab={settingsActiveTab}
+            onActiveTabChange={setSettingsActiveTab}
+            highlightedSettingKey={highlightedSetting}
+            onClearHighlight={() => setHighlightedSetting(null)}
+          />
 
           <Button
             variant="outline"
@@ -622,6 +645,18 @@ export default function DiffChecker() {
           </div>
         </div>
       )}
+      <CommandMenu
+        open={isCommandMenuOpen}
+        onOpenChange={setIsCommandMenuOpen}
+        settings={settings}
+        onSettingsChange={setSettings}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onClearAll={handleClearAll}
+        onSwap={handleSwap}
+        onOpenSettingsPanel={handleOpenSettingsPanel}
+        onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
+      />
     </div>
   )
 }
