@@ -216,7 +216,96 @@ export function CommandMenu({
 
           {currentView === "root" && (
             <>
-              {/* Settings Group */}
+              {/* Group 1: Editor Actions (Prioritized first) */}
+              <CommandGroup heading="Editor Actions">
+                <CommandItem
+                  value="Swap Editor Texts"
+                  onSelect={() => {
+                    onSwap()
+                    onOpenChange(false)
+                  }}
+                  className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="flex-none p-1 bg-muted/40 rounded-md border border-border/30">
+                      <ArrowLeftRight className="h-4.5 w-4.5 text-primary" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-sm text-foreground">Swap Editor Texts</span>
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        Swap original and changed columns
+                      </span>
+                    </div>
+                  </div>
+                </CommandItem>
+
+                <CommandItem
+                  value="Clear Texts"
+                  onSelect={() => {
+                    onClearAll()
+                    onOpenChange(false)
+                  }}
+                  className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="flex-none p-1 bg-destructive/10 rounded-md border border-destructive/20">
+                      <Trash2 className="h-4.5 w-4.5 text-destructive" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-sm text-destructive">Clear Texts</span>
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        Wipe both text fields clean
+                      </span>
+                    </div>
+                  </div>
+                </CommandItem>
+
+                <CommandItem
+                  value="Switch to Split View"
+                  onSelect={() => {
+                    onViewModeChange("split")
+                    onOpenChange(false)
+                  }}
+                  className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
+                  data-checked={viewMode === "split"}
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="flex-none p-1 bg-muted/40 rounded-md border border-border/30">
+                      <Columns className="h-4.5 w-4.5 text-sky-500" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-sm text-foreground">Switch to Split View</span>
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        Display inputs side-by-side
+                      </span>
+                    </div>
+                  </div>
+                </CommandItem>
+
+                <CommandItem
+                  value="Switch to Unified View"
+                  onSelect={() => {
+                    onViewModeChange("unified")
+                    onOpenChange(false)
+                  }}
+                  className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
+                  data-checked={viewMode === "unified"}
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="flex-none p-1 bg-muted/40 rounded-md border border-border/30">
+                      <Rows className="h-4.5 w-4.5 text-purple-500" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-sm text-foreground">Switch to Unified View</span>
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        Display inputs combined inline
+                      </span>
+                    </div>
+                  </div>
+                </CommandItem>
+              </CommandGroup>
+
+              {/* Group 2: Settings Options (Prioritized second) */}
               <CommandGroup heading="Settings Options">
                 {SETTINGS_SCHEMA.map((setting) => {
                   if (setting.type === "switch") {
@@ -224,7 +313,7 @@ export function CommandMenu({
                     return (
                       <CommandItem
                         key={setting.key}
-                        value={`${setting.label} ${setting.description}`}
+                        value={setting.label}
                         onSelect={() => toggleSwitchSetting(setting.key as keyof DiffSettings)}
                         className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
                       >
@@ -270,7 +359,7 @@ export function CommandMenu({
                           return (
                             <CommandItem
                               key={`${setting.key}-${opt.value}`}
-                              value={`Set ${setting.label} to ${opt.label} ${setting.description}`}
+                              value={`Set ${setting.label} to ${opt.label}`}
                               onSelect={() => setSelectSetting(setting.key, opt.value)}
                               className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
                               data-checked={isOptionChecked}
@@ -302,7 +391,7 @@ export function CommandMenu({
                       <React.Fragment key={setting.key}>
                         {/* Preset -1 */}
                         <CommandItem
-                          value={`Disable ${setting.label} manual`}
+                          value={`Disable ${setting.label} (Manual)`}
                           onSelect={() => setNumericSetting(setting.key as keyof DiffSettings, -1)}
                           className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
                           data-checked={currentVal === -1}
@@ -322,7 +411,7 @@ export function CommandMenu({
 
                         {/* Preset 0 */}
                         <CommandItem
-                          value={`Instant ${setting.label}`}
+                          value={`Instant ${setting.label} (0ms)`}
                           onSelect={() => setNumericSetting(setting.key as keyof DiffSettings, 0)}
                           className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
                           data-checked={currentVal === 0}
@@ -342,7 +431,7 @@ export function CommandMenu({
 
                         {/* Preset 250ms */}
                         <CommandItem
-                          value={`Debounce 250ms ${setting.label}`}
+                          value={`Debounce ${setting.label} (250ms)`}
                           onSelect={() => setNumericSetting(setting.key as keyof DiffSettings, 250)}
                           className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
                           data-checked={currentVal === 250}
@@ -362,7 +451,7 @@ export function CommandMenu({
 
                         {/* Custom value drilldown option */}
                         <CommandItem
-                          value={`Custom value ${setting.label}`}
+                          value={`Custom delay for ${setting.label}`}
                           onSelect={() => {
                             setCurrentView("custom-auto-compare")
                             setSearchQuery("")
@@ -392,101 +481,12 @@ export function CommandMenu({
                 })}
               </CommandGroup>
 
-              {/* Actions Group */}
-              <CommandGroup heading="Editor Actions">
-                <CommandItem
-                  value="Swap left and right editor texts"
-                  onSelect={() => {
-                    onSwap()
-                    onOpenChange(false)
-                  }}
-                  className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="flex-none p-1 bg-muted/40 rounded-md border border-border/30">
-                      <ArrowLeftRight className="h-4.5 w-4.5 text-primary" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-medium text-sm text-foreground">Swap Editor Texts</span>
-                      <span className="text-[11px] text-muted-foreground truncate">
-                        Swap original and changed columns
-                      </span>
-                    </div>
-                  </div>
-                </CommandItem>
-
-                <CommandItem
-                  value="Clear all editor texts and file uploads"
-                  onSelect={() => {
-                    onClearAll()
-                    onOpenChange(false)
-                  }}
-                  className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="flex-none p-1 bg-destructive/10 rounded-md border border-destructive/20">
-                      <Trash2 className="h-4.5 w-4.5 text-destructive" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-medium text-sm text-destructive">Clear Texts</span>
-                      <span className="text-[11px] text-muted-foreground truncate">
-                        Wipe both text fields clean
-                      </span>
-                    </div>
-                  </div>
-                </CommandItem>
-
-                <CommandItem
-                  value="Switch to Split View layout"
-                  onSelect={() => {
-                    onViewModeChange("split")
-                    onOpenChange(false)
-                  }}
-                  className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
-                  data-checked={viewMode === "split"}
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="flex-none p-1 bg-muted/40 rounded-md border border-border/30">
-                      <Columns className="h-4.5 w-4.5 text-sky-500" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-medium text-sm text-foreground">Switch to Split View</span>
-                      <span className="text-[11px] text-muted-foreground truncate">
-                        Display inputs side-by-side
-                      </span>
-                    </div>
-                  </div>
-                </CommandItem>
-
-                <CommandItem
-                  value="Switch to Unified View layout"
-                  onSelect={() => {
-                    onViewModeChange("unified")
-                    onOpenChange(false)
-                  }}
-                  className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
-                  data-checked={viewMode === "unified"}
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="flex-none p-1 bg-muted/40 rounded-md border border-border/30">
-                      <Rows className="h-4.5 w-4.5 text-purple-500" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-medium text-sm text-foreground">Switch to Unified View</span>
-                      <span className="text-[11px] text-muted-foreground truncate">
-                        Display inputs combined inline
-                      </span>
-                    </div>
-                  </div>
-                </CommandItem>
-              </CommandGroup>
-
-              {/* Redirects to settings panel with tab selection and item highlighting */}
+              {/* Group 3: Dialog Locators (Prioritized third) */}
               <CommandGroup heading="Locate in Settings Panel">
                 {SETTINGS_SCHEMA.map((setting) => (
                   <CommandItem
                     key={`open-${setting.key}`}
-                    value={`Locate settings detail ${setting.label}`}
+                    value={`Locate ${setting.label} in settings`}
                     onSelect={() => {
                       onOpenChange(false)
                       // Trigger opening settings panel
@@ -514,7 +514,7 @@ export function CommandMenu({
                 ))}
 
                 <CommandItem
-                  value="Reset all settings to default"
+                  value="Reset Settings to Defaults"
                   onSelect={() => {
                     onResetSettings()
                     onOpenChange(false)
