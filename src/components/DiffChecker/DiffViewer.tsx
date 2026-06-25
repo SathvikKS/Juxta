@@ -167,8 +167,11 @@ export function DiffViewer({
                 className={`group flex min-w-max items-stretch hover:bg-muted/5 ${getLineBgClass(row.left.type)}`}
               >
                 {showLineNumbers && (
-                  <div className="w-11 border-r border-border/20 bg-muted/10 py-1 pr-2.5 text-right text-xs text-muted-foreground/45 select-none">
-                    {row.left.lineNumber ?? ""}
+                  <div className="w-11 shrink-0 sticky left-0 z-10 border-r border-border/20 bg-background select-none">
+                    <div className={`absolute inset-0 bg-muted/10 ${getLineBgClass(row.left.type)} group-hover:bg-muted/5`} />
+                    <div className="relative z-20 py-1 pr-2.5 text-right text-xs text-muted-foreground/45 font-mono">
+                      {row.left.lineNumber ?? ""}
+                    </div>
                   </div>
                 )}
                 <div className={`flex-1 px-3.5 py-1 ${lineWrapClass}`}>
@@ -200,8 +203,11 @@ export function DiffViewer({
                 className={`group flex min-w-max items-stretch hover:bg-muted/5 ${getLineBgClass(row.right.type)}`}
               >
                 {showLineNumbers && (
-                  <div className="w-11 border-r border-border/20 bg-muted/10 py-1 pr-2.5 text-right text-xs text-muted-foreground/45 select-none">
-                    {row.right.lineNumber ?? ""}
+                  <div className="w-11 shrink-0 sticky left-0 z-10 border-r border-border/20 bg-background select-none">
+                    <div className={`absolute inset-0 bg-muted/10 ${getLineBgClass(row.right.type)} group-hover:bg-muted/5`} />
+                    <div className="relative z-20 py-1 pr-2.5 text-right text-xs text-muted-foreground/45 font-mono">
+                      {row.right.lineNumber ?? ""}
+                    </div>
                   </div>
                 )}
                 <div className={`flex-1 px-3.5 py-1 ${lineWrapClass}`}>

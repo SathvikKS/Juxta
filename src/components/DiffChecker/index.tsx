@@ -15,6 +15,7 @@ import { SettingsPanel, DEFAULT_SETTINGS } from "./SettingsPanel"
 import type { DiffSettings } from "./SettingsPanel"
 import { StatsBar } from "./StatsBar"
 import { DiffViewer } from "./DiffViewer"
+import { TextEditor } from "./TextEditor"
 import {
   computeAlignedDiff,
   computeUnifiedDiff,
@@ -308,11 +309,12 @@ export default function DiffChecker() {
               </label>
             </div>
           </div>
-          <textarea
-            className="min-h-0 flex-1 resize-none overflow-y-auto border-0 bg-background/50 p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 focus-visible:outline-none"
+          <TextEditor
             placeholder="Paste the original content here or drag-and-drop a text file..."
             value={originalText}
-            onChange={(e) => setOriginalText(e.target.value)}
+            onChange={setOriginalText}
+            showLineNumbers={settings.showLineNumbers}
+            wrapLines={settings.wrapLines}
           />
         </Card>
 
@@ -368,11 +370,12 @@ export default function DiffChecker() {
               </label>
             </div>
           </div>
-          <textarea
-            className="min-h-0 flex-1 resize-none overflow-y-auto border-0 bg-background/50 p-4 font-mono text-sm leading-relaxed focus-visible:ring-0 focus-visible:outline-none"
+          <TextEditor
             placeholder="Paste the changed content here or drag-and-drop a text file..."
             value={changedText}
-            onChange={(e) => setChangedText(e.target.value)}
+            onChange={setChangedText}
+            showLineNumbers={settings.showLineNumbers}
+            wrapLines={settings.wrapLines}
           />
         </Card>
       </div>
