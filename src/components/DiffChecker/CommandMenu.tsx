@@ -1,6 +1,6 @@
 import * as React from "react"
 import {
-  CommandDialog,
+  Command,
   CommandInput,
   CommandList,
   CommandEmpty,
@@ -8,6 +8,13 @@ import {
   CommandItem,
   CommandShortcut,
 } from "@/components/ui/command"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { useTheme } from "@/components/theme-provider"
 import { SETTINGS_SCHEMA } from "./settingsSchema"
 import type { DiffSettings } from "./SettingsPanel"
@@ -39,6 +46,32 @@ import {
   RotateCcw,
   ExternalLink,
 } from "lucide-react"
+
+const customFilter = (value: string, search: string) => {
+  const val = value.toLowerCase().trim()
+  const searchStr = search.toLowerCase().trim()
+
+  if (!searchStr) return 1
+
+  // 1. Exact match gets highest score
+  if (val === searchStr) return 1
+
+  // 2. Starts with gets very high score
+  if (val.startsWith(searchStr)) return 0.9
+
+  // 3. Includes substring gets good score
+  if (val.includes(searchStr)) {
+    const index = val.indexOf(searchStr)
+    return 0.8 - (index / val.length) * 0.3
+  }
+
+  // 4. Word-by-word prefix match (e.g. "split" matching "Switch to Split View")
+  const words = val.split(/\s+/)
+  const startsWithWord = words.some((word) => word.startsWith(searchStr))
+  if (startsWithWord) return 0.5
+
+  return 0 // No match, filter out
+}
 
 interface CommandMenuProps {
   open: boolean
@@ -192,13 +225,17 @@ export function CommandMenu({
   }
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Command Palette"
-      description="Quickly search all settings and editor actions."
-    >
-      <div onKeyDown={handleKeyDown} className="flex flex-col h-full bg-card/40 backdrop-blur-md">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogHeader className="sr-only">
+        <DialogTitle>Command Palette</DialogTitle>
+        <DialogDescription>Quickly search all settings and editor actions.</DialogDescription>
+      </DialogHeader>
+      <DialogContent
+        className="top-[12%] translate-y-0 overflow-hidden rounded-xl! p-0 sm:max-w-[540px] shadow-2xl border border-border/80 bg-popover/90 backdrop-blur-md"
+        showCloseButton={false}
+      >
+        <Command className="bg-transparent" filter={customFilter}>
+          <div onKeyDown={handleKeyDown} className="flex flex-col h-full bg-card/40 backdrop-blur-md">
         <CommandInput
           placeholder={
             currentView === "custom-auto-compare"
@@ -576,7 +613,9 @@ export function CommandMenu({
             </CommandGroup>
           )}
         </CommandList>
-      </div>
-    </CommandDialog>
+          </div>
+        </Command>
+      </DialogContent>
+    </Dialog>
   )
 }
