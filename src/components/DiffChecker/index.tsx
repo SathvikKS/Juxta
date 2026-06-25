@@ -544,8 +544,45 @@ export default function DiffChecker() {
               className="flex h-full w-1/2 flex-col gap-4 px-1"
               inert={activeTab !== "diff"}
             >
-              {/* Header / Meta Controls for visual diff */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between shrink-0">
+              {/* Stats Bar with View Switcher */}
+              <StatsBar
+                similarity={similarity}
+                addedCount={addedCount}
+                removedCount={removedCount}
+                totalLines={totalLines}
+              >
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
+                  <Button
+                    variant={viewMode === "split" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+                    onClick={() => setViewMode("split")}
+                  >
+                    Split View
+                  </Button>
+                  <Button
+                    variant={viewMode === "unified" ? "secondary" : "ghost"}
+                    size="icon"
+                    className="h-7 w-auto cursor-pointer rounded-md px-3 text-xs font-semibold"
+                    onClick={() => setViewMode("unified")}
+                  >
+                    Unified View
+                  </Button>
+                </div>
+              </StatsBar>
+
+              {/* Interactive Viewer */}
+              <DiffViewer
+                alignedLines={alignedLines}
+                unifiedLines={unifiedLines}
+                viewMode={viewMode}
+                showLineNumbers={settings.showLineNumbers}
+                wrapLines={settings.wrapLines}
+                scrollLock={settings.scrollLock}
+              />
+
+              {/* Bottom Action Controls */}
+              <div className="flex items-center justify-between gap-3 shrink-0 mt-1">
                 <Button
                   size="lg"
                   onClick={() => setActiveTab("edit")}
@@ -558,44 +595,6 @@ export default function DiffChecker() {
                   </Kbd>
                 </Button>
 
-                <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1.5 shadow-xs">
-                  <Button
-                    variant={viewMode === "split" ? "secondary" : "ghost"}
-                    className="h-8 cursor-pointer rounded-md px-3 text-xs font-semibold"
-                    onClick={() => setViewMode("split")}
-                  >
-                    Split View
-                  </Button>
-                  <Button
-                    variant={viewMode === "unified" ? "secondary" : "ghost"}
-                    className="h-8 cursor-pointer rounded-md px-3 text-xs font-semibold"
-                    onClick={() => setViewMode("unified")}
-                  >
-                    Unified View
-                  </Button>
-                </div>
-              </div>
-
-              {/* Stats Bar */}
-              <StatsBar
-                similarity={similarity}
-                addedCount={addedCount}
-                removedCount={removedCount}
-                totalLines={totalLines}
-              />
-
-              {/* Interactive Viewer */}
-              <DiffViewer
-                alignedLines={alignedLines}
-                unifiedLines={unifiedLines}
-                viewMode={viewMode}
-                showLineNumbers={settings.showLineNumbers}
-                wrapLines={settings.wrapLines}
-                scrollLock={settings.scrollLock}
-              />
-
-              {/* Footer Info */}
-              <div className="mt-1 flex items-center justify-end shrink-0">
                 <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
                   <Sparkles className="h-3 w-3 animate-pulse text-primary" />
                   Compares client-side only. Data never leaves your device.
