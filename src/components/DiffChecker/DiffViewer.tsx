@@ -28,8 +28,10 @@ export function DiffViewer({
     if (!scrollLock) return
     if (isSyncing.current) return
 
-    const sourceEl = source === "left" ? leftScrollRef.current : rightScrollRef.current
-    const targetEl = source === "left" ? rightScrollRef.current : leftScrollRef.current
+    const sourceEl =
+      source === "left" ? leftScrollRef.current : rightScrollRef.current
+    const targetEl =
+      source === "left" ? rightScrollRef.current : leftScrollRef.current
 
     if (!sourceEl || !targetEl) return
 
@@ -58,7 +60,7 @@ export function DiffViewer({
       }
     }
   }, [scrollLock, viewMode])
-  
+
   // Return background color classes for line categories
   const getLineBgClass = (type: "added" | "removed" | "normal" | "empty") => {
     switch (type) {
@@ -106,7 +108,7 @@ export function DiffViewer({
                 key={index}
                 className={
                   part.removed
-                    ? "bg-red-500/25 dark:bg-red-500/40 text-red-950 dark:text-red-100 px-0.5 rounded-xs font-semibold border-b border-red-500/50"
+                    ? "rounded-xs border-b border-red-500/50 bg-red-500/25 px-0.5 font-semibold text-red-950 dark:bg-red-500/40 dark:text-red-100"
                     : ""
                 }
               >
@@ -120,7 +122,7 @@ export function DiffViewer({
                 key={index}
                 className={
                   part.added
-                    ? "bg-green-500/30 dark:bg-green-500/45 text-green-950 dark:text-green-100 px-0.5 rounded-xs font-semibold border-b border-green-500/50"
+                    ? "rounded-xs border-b border-green-500/50 bg-green-500/30 px-0.5 font-semibold text-green-950 dark:bg-green-500/45 dark:text-green-100"
                     : ""
                 }
               >
@@ -134,44 +136,53 @@ export function DiffViewer({
     )
   }
 
-  const lineWrapClass = wrapLines ? "whitespace-pre-wrap break-all" : "whitespace-pre overflow-x-auto"
+  const lineWrapClass = wrapLines
+    ? "whitespace-pre-wrap break-all"
+    : "whitespace-pre overflow-x-auto"
 
   if (viewMode === "split") {
     return (
-      <div className="flex-1 min-h-0 flex flex-col border border-border/80 rounded-xl overflow-hidden bg-card text-card-foreground shadow-xs">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
         {/* Table header */}
-        <div className="flex shrink-0 text-xs font-semibold text-muted-foreground border-b border-border bg-muted/40 divide-x divide-border">
-          <div className="w-1/2 py-2 px-4 flex items-center justify-between">
+        <div className="flex shrink-0 divide-x divide-border border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground">
+          <div className="flex w-1/2 items-center justify-between px-4 py-2">
             <span>Original Version</span>
           </div>
-          <div className="w-1/2 py-2 px-4 flex items-center justify-between">
+          <div className="flex w-1/2 items-center justify-between px-4 py-2">
             <span>Changed Version</span>
           </div>
         </div>
 
         {/* Aligned Diff Code Pane */}
-        <div className="flex-1 min-h-0 flex divide-x divide-border bg-background">
+        <div className="flex min-h-0 flex-1 divide-x divide-border bg-background">
           {/* Left Pane (Original) */}
           <div
             ref={leftScrollRef}
             onScroll={() => handleScroll("left")}
-            className="w-1/2 overflow-auto h-full divide-y divide-border/10 font-mono text-sm leading-relaxed scrollbar-thin"
+            className="h-full w-1/2 scrollbar-thin divide-y divide-border/10 overflow-auto font-mono text-sm leading-relaxed"
           >
             {alignedLines.map((row, index) => (
-              <div key={index} className={`flex items-stretch min-w-max hover:bg-muted/5 group ${getLineBgClass(row.left.type)}`}>
+              <div
+                key={index}
+                className={`group flex min-w-max items-stretch hover:bg-muted/5 ${getLineBgClass(row.left.type)}`}
+              >
                 {showLineNumbers && (
-                  <div className="w-11 select-none text-right pr-2.5 text-muted-foreground/45 border-r border-border/20 bg-muted/10 py-1 text-xs select-none">
+                  <div className="w-11 border-r border-border/20 bg-muted/10 py-1 pr-2.5 text-right text-xs text-muted-foreground/45 select-none">
                     {row.left.lineNumber ?? ""}
                   </div>
                 )}
                 <div className={`flex-1 px-3.5 py-1 ${lineWrapClass}`}>
-                  {renderLineContent(row.left.text, row.left.type, row.left.subChanges)}
+                  {renderLineContent(
+                    row.left.text,
+                    row.left.type,
+                    row.left.subChanges
+                  )}
                 </div>
               </div>
             ))}
 
             {alignedLines.length === 0 && (
-              <div className="py-12 text-center text-muted-foreground font-sans text-xs">
+              <div className="py-12 text-center font-sans text-xs text-muted-foreground">
                 No original text to display.
               </div>
             )}
@@ -181,23 +192,30 @@ export function DiffViewer({
           <div
             ref={rightScrollRef}
             onScroll={() => handleScroll("right")}
-            className="w-1/2 overflow-auto h-full divide-y divide-border/10 font-mono text-sm leading-relaxed scrollbar-thin"
+            className="h-full w-1/2 scrollbar-thin divide-y divide-border/10 overflow-auto font-mono text-sm leading-relaxed"
           >
             {alignedLines.map((row, index) => (
-              <div key={index} className={`flex items-stretch min-w-max hover:bg-muted/5 group ${getLineBgClass(row.right.type)}`}>
+              <div
+                key={index}
+                className={`group flex min-w-max items-stretch hover:bg-muted/5 ${getLineBgClass(row.right.type)}`}
+              >
                 {showLineNumbers && (
-                  <div className="w-11 select-none text-right pr-2.5 text-muted-foreground/45 border-r border-border/20 bg-muted/10 py-1 text-xs select-none">
+                  <div className="w-11 border-r border-border/20 bg-muted/10 py-1 pr-2.5 text-right text-xs text-muted-foreground/45 select-none">
                     {row.right.lineNumber ?? ""}
                   </div>
                 )}
                 <div className={`flex-1 px-3.5 py-1 ${lineWrapClass}`}>
-                  {renderLineContent(row.right.text, row.right.type, row.right.subChanges)}
+                  {renderLineContent(
+                    row.right.text,
+                    row.right.type,
+                    row.right.subChanges
+                  )}
                 </div>
               </div>
             ))}
 
             {alignedLines.length === 0 && (
-              <div className="py-12 text-center text-muted-foreground font-sans text-xs">
+              <div className="py-12 text-center font-sans text-xs text-muted-foreground">
                 No changed text to display.
               </div>
             )}
@@ -209,32 +227,41 @@ export function DiffViewer({
 
   // Unified View
   return (
-    <div className="flex-1 min-h-0 flex flex-col border border-border/80 rounded-xl overflow-hidden bg-card text-card-foreground shadow-xs">
-      <div className="flex shrink-0 text-xs font-semibold text-muted-foreground border-b border-border bg-muted/40">
-        <div className="py-2 px-4 flex items-center gap-2">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
+      <div className="flex shrink-0 border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground">
+        <div className="flex items-center gap-2 px-4 py-2">
           <span>Unified View</span>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-border/20 font-mono text-sm leading-relaxed scrollbar-thin">
+      <div className="min-h-0 flex-1 scrollbar-thin divide-y divide-border/20 overflow-y-auto font-mono text-sm leading-relaxed">
         {unifiedLines.map((line, index) => (
-          <div key={index} className={`flex hover:bg-muted/5 group ${getLineBgClass(line.type)}`}>
+          <div
+            key={index}
+            className={`group flex hover:bg-muted/5 ${getLineBgClass(line.type)}`}
+          >
             {showLineNumbers && (
               <>
                 {/* Old line no. */}
-                <div className="w-11 select-none text-right pr-2 text-muted-foreground/45 border-r border-border/10 bg-muted/10 py-1 text-xs">
+                <div className="w-11 border-r border-border/10 bg-muted/10 py-1 pr-2 text-right text-xs text-muted-foreground/45 select-none">
                   {line.oldLineNumber ?? ""}
                 </div>
                 {/* New line no. */}
-                <div className="w-11 select-none text-right pr-2.5 text-muted-foreground/45 border-r border-border/20 bg-muted/15 py-1 text-xs">
+                <div className="w-11 border-r border-border/20 bg-muted/15 py-1 pr-2.5 text-right text-xs text-muted-foreground/45 select-none">
                   {line.newLineNumber ?? ""}
                 </div>
               </>
             )}
-            
+
             {/* Diff Indicator +/- */}
-            <div className={`w-7 select-none flex items-center justify-center font-semibold border-r border-border/20 text-xs py-1 ${getPrefixColorClass(line.type)}`}>
-              {line.type === "added" ? "+" : line.type === "removed" ? "-" : "\u00A0"}
+            <div
+              className={`flex w-7 items-center justify-center border-r border-border/20 py-1 text-xs font-semibold select-none ${getPrefixColorClass(line.type)}`}
+            >
+              {line.type === "added"
+                ? "+"
+                : line.type === "removed"
+                  ? "-"
+                  : "\u00A0"}
             </div>
 
             {/* Code Line */}
@@ -245,8 +272,9 @@ export function DiffViewer({
         ))}
 
         {unifiedLines.length === 0 && (
-          <div className="py-12 text-center text-muted-foreground font-sans text-xs">
-            No differences to display. Enter original and changed texts to compare.
+          <div className="py-12 text-center font-sans text-xs text-muted-foreground">
+            No differences to display. Enter original and changed texts to
+            compare.
           </div>
         )}
       </div>

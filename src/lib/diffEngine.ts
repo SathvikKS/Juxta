@@ -1,54 +1,57 @@
-import { diffLines, diffChars, diffWordsWithSpace } from 'diff';
-import type { Change } from 'diff';
+import { diffLines, diffChars, diffWordsWithSpace } from "diff"
+import type { Change } from "diff"
 
 export interface DiffEngineOptions {
-  caseSensitive: boolean;
-  whitespaceSensitive: boolean;
-  trimWhitespace: boolean;
-  lineEndingSensitive: boolean;
-  inlineDiffMode: 'char' | 'word' | 'none';
+  caseSensitive: boolean
+  whitespaceSensitive: boolean
+  trimWhitespace: boolean
+  lineEndingSensitive: boolean
+  inlineDiffMode: "char" | "word" | "none"
 }
 
 export interface AlignedLine {
   left: {
-    text: string;
-    lineNumber: number | null;
-    type: 'removed' | 'normal' | 'empty';
-    subChanges?: Change[];
-  };
+    text: string
+    lineNumber: number | null
+    type: "removed" | "normal" | "empty"
+    subChanges?: Change[]
+  }
   right: {
-    text: string;
-    lineNumber: number | null;
-    type: 'added' | 'normal' | 'empty';
-    subChanges?: Change[];
-  };
+    text: string
+    lineNumber: number | null
+    type: "added" | "normal" | "empty"
+    subChanges?: Change[]
+  }
 }
 
 export interface UnifiedLine {
-  text: string;
-  oldLineNumber: number | null;
-  newLineNumber: number | null;
-  type: 'added' | 'removed' | 'normal';
-  subChanges?: Change[];
+  text: string
+  oldLineNumber: number | null
+  newLineNumber: number | null
+  type: "added" | "removed" | "normal"
+  subChanges?: Change[]
 }
 
 /**
  * Normalizes text lines and pre-processes based on settings
  */
 function preprocessText(text: string, options: DiffEngineOptions): string {
-  let processed = text;
-  
+  let processed = text
+
   // Normalize line endings to LF unless line ending sensitive
   if (!options.lineEndingSensitive) {
-    processed = processed.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    processed = processed.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
   }
-  
+
   // Trim spaces on each line if enabled
   if (options.trimWhitespace) {
-    processed = processed.split('\n').map(line => line.trimEnd()).join('\n');
+    processed = processed
+      .split("\n")
+      .map((line) => line.trimEnd())
+      .join("\n")
   }
-  
-  return processed;
+
+  return processed
 }
 
 /**
@@ -59,137 +62,141 @@ export function computeAlignedDiff(
   newStr: string,
   options: DiffEngineOptions
 ): AlignedLine[] {
-  const original = preprocessText(oldStr, options);
-  const changed = preprocessText(newStr, options);
+  const original = preprocessText(oldStr, options)
+  const changed = preprocessText(newStr, options)
 
   const diffOptions = {
     ignoreCase: !options.caseSensitive,
     ignoreWhitespace: !options.whitespaceSensitive,
     stripTrailingCr: !options.lineEndingSensitive,
-  };
-
-  const rawChanges = diffLines(original, changed, diffOptions);
-
-  interface SplitChange {
-    type: 'added' | 'removed' | 'normal';
-    lines: string[];
   }
 
-  const splitChanges: SplitChange[] = [];
-  rawChanges.forEach(change => {
-    const lines = change.value.split('\n');
-    if (lines[lines.length - 1] === '') {
-      lines.pop(); // remove trailing empty split item
-    }
-    const type = change.added ? 'added' : change.removed ? 'removed' : 'normal';
-    if (lines.length > 0) {
-      splitChanges.push({ type, lines });
-    }
-  });
+  const rawChanges = diffLines(original, changed, diffOptions)
 
-  const aligned: AlignedLine[] = [];
-  let leftLineNum = 1;
-  let rightLineNum = 1;
+  interface SplitChange {
+    type: "added" | "removed" | "normal"
+    lines: string[]
+  }
+
+  const splitChanges: SplitChange[] = []
+  rawChanges.forEach((change) => {
+    const lines = change.value.split("\n")
+    if (lines[lines.length - 1] === "") {
+      lines.pop() // remove trailing empty split item
+    }
+    const type = change.added ? "added" : change.removed ? "removed" : "normal"
+    if (lines.length > 0) {
+      splitChanges.push({ type, lines })
+    }
+  })
+
+  const aligned: AlignedLine[] = []
+  let leftLineNum = 1
+  let rightLineNum = 1
 
   for (let i = 0; i < splitChanges.length; i++) {
-    const current = splitChanges[i];
-    const next = splitChanges[i + 1];
+    const current = splitChanges[i]
+    const next = splitChanges[i + 1]
 
-    if (current.type === 'removed' && next && next.type === 'added') {
+    if (current.type === "removed" && next && next.type === "added") {
       // Modified chunk (deletions followed by additions)
-      const R = current.lines.length;
-      const A = next.lines.length;
-      const maxLen = Math.max(R, A);
+      const R = current.lines.length
+      const A = next.lines.length
+      const maxLen = Math.max(R, A)
 
       for (let j = 0; j < maxLen; j++) {
-        const leftLine = j < R ? current.lines[j] : null;
-        const rightLine = j < A ? next.lines[j] : null;
+        const leftLine = j < R ? current.lines[j] : null
+        const rightLine = j < A ? next.lines[j] : null
 
-        let leftSubChanges: Change[] | undefined;
-        let rightSubChanges: Change[] | undefined;
+        let leftSubChanges: Change[] | undefined
+        let rightSubChanges: Change[] | undefined
 
-        if (leftLine !== null && rightLine !== null && options.inlineDiffMode !== 'none') {
-          let charDiff: Change[];
-          const subDiffOptions = { ignoreCase: !options.caseSensitive };
-          
-          if (options.inlineDiffMode === 'char') {
-            charDiff = diffChars(leftLine, rightLine, subDiffOptions);
+        if (
+          leftLine !== null &&
+          rightLine !== null &&
+          options.inlineDiffMode !== "none"
+        ) {
+          let charDiff: Change[]
+          const subDiffOptions = { ignoreCase: !options.caseSensitive }
+
+          if (options.inlineDiffMode === "char") {
+            charDiff = diffChars(leftLine, rightLine, subDiffOptions)
           } else {
-            charDiff = diffWordsWithSpace(leftLine, rightLine, subDiffOptions);
+            charDiff = diffWordsWithSpace(leftLine, rightLine, subDiffOptions)
           }
-          
-          leftSubChanges = charDiff.filter(c => !c.added);
-          rightSubChanges = charDiff.filter(c => !c.removed);
+
+          leftSubChanges = charDiff.filter((c) => !c.added)
+          rightSubChanges = charDiff.filter((c) => !c.removed)
         }
 
         aligned.push({
           left: {
-            text: leftLine ?? '',
+            text: leftLine ?? "",
             lineNumber: leftLine !== null ? leftLineNum++ : null,
-            type: leftLine !== null ? 'removed' : 'empty',
+            type: leftLine !== null ? "removed" : "empty",
             subChanges: leftSubChanges,
           },
           right: {
-            text: rightLine ?? '',
+            text: rightLine ?? "",
             lineNumber: rightLine !== null ? rightLineNum++ : null,
-            type: rightLine !== null ? 'added' : 'empty',
+            type: rightLine !== null ? "added" : "empty",
             subChanges: rightSubChanges,
-          }
-        });
+          },
+        })
       }
-      i++; // skip the next change item since we paired it
-    } else if (current.type === 'removed') {
+      i++ // skip the next change item since we paired it
+    } else if (current.type === "removed") {
       // Standalone deletion
-      current.lines.forEach(line => {
+      current.lines.forEach((line) => {
         aligned.push({
           left: {
             text: line,
             lineNumber: leftLineNum++,
-            type: 'removed',
+            type: "removed",
           },
           right: {
-            text: '',
+            text: "",
             lineNumber: null,
-            type: 'empty',
-          }
-        });
-      });
-    } else if (current.type === 'added') {
+            type: "empty",
+          },
+        })
+      })
+    } else if (current.type === "added") {
       // Standalone addition
-      current.lines.forEach(line => {
+      current.lines.forEach((line) => {
         aligned.push({
           left: {
-            text: '',
+            text: "",
             lineNumber: null,
-            type: 'empty',
+            type: "empty",
           },
           right: {
             text: line,
             lineNumber: rightLineNum++,
-            type: 'added',
-          }
-        });
-      });
+            type: "added",
+          },
+        })
+      })
     } else {
       // Normal unchanged lines
-      current.lines.forEach(line => {
+      current.lines.forEach((line) => {
         aligned.push({
           left: {
             text: line,
             lineNumber: leftLineNum++,
-            type: 'normal',
+            type: "normal",
           },
           right: {
             text: line,
             lineNumber: rightLineNum++,
-            type: 'normal',
-          }
-        });
-      });
+            type: "normal",
+          },
+        })
+      })
     }
   }
 
-  return aligned;
+  return aligned
 }
 
 /**
@@ -200,67 +207,71 @@ export function computeUnifiedDiff(
   newStr: string,
   options: DiffEngineOptions
 ): UnifiedLine[] {
-  const original = preprocessText(oldStr, options);
-  const changed = preprocessText(newStr, options);
+  const original = preprocessText(oldStr, options)
+  const changed = preprocessText(newStr, options)
 
   const diffOptions = {
     ignoreCase: !options.caseSensitive,
     ignoreWhitespace: !options.whitespaceSensitive,
     stripTrailingCr: !options.lineEndingSensitive,
-  };
-
-  const rawChanges = diffLines(original, changed, diffOptions);
-
-  interface SplitChange {
-    type: 'added' | 'removed' | 'normal';
-    lines: string[];
   }
 
-  const splitChanges: SplitChange[] = [];
-  rawChanges.forEach(change => {
-    const lines = change.value.split('\n');
-    if (lines[lines.length - 1] === '') {
-      lines.pop();
-    }
-    const type = change.added ? 'added' : change.removed ? 'removed' : 'normal';
-    if (lines.length > 0) {
-      splitChanges.push({ type, lines });
-    }
-  });
+  const rawChanges = diffLines(original, changed, diffOptions)
 
-  const unified: UnifiedLine[] = [];
-  let oldLineNum = 1;
-  let newLineNum = 1;
+  interface SplitChange {
+    type: "added" | "removed" | "normal"
+    lines: string[]
+  }
+
+  const splitChanges: SplitChange[] = []
+  rawChanges.forEach((change) => {
+    const lines = change.value.split("\n")
+    if (lines[lines.length - 1] === "") {
+      lines.pop()
+    }
+    const type = change.added ? "added" : change.removed ? "removed" : "normal"
+    if (lines.length > 0) {
+      splitChanges.push({ type, lines })
+    }
+  })
+
+  const unified: UnifiedLine[] = []
+  let oldLineNum = 1
+  let newLineNum = 1
 
   for (let i = 0; i < splitChanges.length; i++) {
-    const current = splitChanges[i];
-    const next = splitChanges[i + 1];
+    const current = splitChanges[i]
+    const next = splitChanges[i + 1]
 
-    if (current.type === 'removed' && next && next.type === 'added') {
+    if (current.type === "removed" && next && next.type === "added") {
       // Modified chunk (deletions followed by additions)
-      const R = current.lines.length;
-      const A = next.lines.length;
+      const R = current.lines.length
+      const A = next.lines.length
 
-      const removedLinesSubChanges: (Change[] | undefined)[] = [];
-      const addedLinesSubChanges: (Change[] | undefined)[] = [];
+      const removedLinesSubChanges: (Change[] | undefined)[] = []
+      const addedLinesSubChanges: (Change[] | undefined)[] = []
 
-      const maxLen = Math.max(R, A);
+      const maxLen = Math.max(R, A)
       for (let j = 0; j < maxLen; j++) {
-        const leftLine = j < R ? current.lines[j] : null;
-        const rightLine = j < A ? next.lines[j] : null;
+        const leftLine = j < R ? current.lines[j] : null
+        const rightLine = j < A ? next.lines[j] : null
 
-        if (leftLine !== null && rightLine !== null && options.inlineDiffMode !== 'none') {
-          let charDiff: Change[];
-          const subDiffOptions = { ignoreCase: !options.caseSensitive };
+        if (
+          leftLine !== null &&
+          rightLine !== null &&
+          options.inlineDiffMode !== "none"
+        ) {
+          let charDiff: Change[]
+          const subDiffOptions = { ignoreCase: !options.caseSensitive }
 
-          if (options.inlineDiffMode === 'char') {
-            charDiff = diffChars(leftLine, rightLine, subDiffOptions);
+          if (options.inlineDiffMode === "char") {
+            charDiff = diffChars(leftLine, rightLine, subDiffOptions)
           } else {
-            charDiff = diffWordsWithSpace(leftLine, rightLine, subDiffOptions);
+            charDiff = diffWordsWithSpace(leftLine, rightLine, subDiffOptions)
           }
-          
-          removedLinesSubChanges[j] = charDiff.filter(c => !c.added);
-          addedLinesSubChanges[j] = charDiff.filter(c => !c.removed);
+
+          removedLinesSubChanges[j] = charDiff.filter((c) => !c.added)
+          addedLinesSubChanges[j] = charDiff.filter((c) => !c.removed)
         }
       }
 
@@ -270,9 +281,9 @@ export function computeUnifiedDiff(
           text: current.lines[j],
           oldLineNumber: oldLineNum++,
           newLineNumber: null,
-          type: 'removed',
+          type: "removed",
           subChanges: removedLinesSubChanges[j],
-        });
+        })
       }
 
       // Output all additions next
@@ -281,43 +292,43 @@ export function computeUnifiedDiff(
           text: next.lines[j],
           oldLineNumber: null,
           newLineNumber: newLineNum++,
-          type: 'added',
+          type: "added",
           subChanges: addedLinesSubChanges[j],
-        });
+        })
       }
 
-      i++; // skip next
-    } else if (current.type === 'removed') {
-      current.lines.forEach(line => {
+      i++ // skip next
+    } else if (current.type === "removed") {
+      current.lines.forEach((line) => {
         unified.push({
           text: line,
           oldLineNumber: oldLineNum++,
           newLineNumber: null,
-          type: 'removed',
-        });
-      });
-    } else if (current.type === 'added') {
-      current.lines.forEach(line => {
+          type: "removed",
+        })
+      })
+    } else if (current.type === "added") {
+      current.lines.forEach((line) => {
         unified.push({
           text: line,
           oldLineNumber: null,
           newLineNumber: newLineNum++,
-          type: 'added',
-        });
-      });
+          type: "added",
+        })
+      })
     } else {
-      current.lines.forEach(line => {
+      current.lines.forEach((line) => {
         unified.push({
           text: line,
           oldLineNumber: oldLineNum++,
           newLineNumber: newLineNum++,
-          type: 'normal',
-        });
-      });
+          type: "normal",
+        })
+      })
     }
   }
 
-  return unified;
+  return unified
 }
 
 /**
@@ -328,20 +339,20 @@ export function computeSimilarity(
   newStr: string,
   caseSensitive: boolean
 ): number {
-  const s1 = caseSensitive ? oldStr : oldStr.toLowerCase();
-  const s2 = caseSensitive ? newStr : newStr.toLowerCase();
-  
-  if (!s1 && !s2) return 100;
-  if (!s1 || !s2) return 0;
+  const s1 = caseSensitive ? oldStr : oldStr.toLowerCase()
+  const s2 = caseSensitive ? newStr : newStr.toLowerCase()
 
-  const chars = diffChars(s1, s2);
-  let commonLen = 0;
-  
-  chars.forEach(c => {
+  if (!s1 && !s2) return 100
+  if (!s1 || !s2) return 0
+
+  const chars = diffChars(s1, s2)
+  let commonLen = 0
+
+  chars.forEach((c) => {
     if (!c.added && !c.removed) {
-      commonLen += c.value.length;
+      commonLen += c.value.length
     }
-  });
+  })
 
-  return Math.round(((2 * commonLen) / (s1.length + s2.length)) * 100);
+  return Math.round(((2 * commonLen) / (s1.length + s2.length)) * 100)
 }

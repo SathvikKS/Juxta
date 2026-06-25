@@ -27,17 +27,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useTheme } from "@/components/theme-provider"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export interface DiffSettings {
-  caseSensitive: boolean;
-  whitespaceSensitive: boolean;
-  trimWhitespace: boolean;
-  lineEndingSensitive: boolean;
-  inlineDiffMode: "char" | "word" | "none";
-  autoCompare: boolean;
-  showLineNumbers: boolean;
-  wrapLines: boolean;
-  scrollLock: boolean;
+  caseSensitive: boolean
+  whitespaceSensitive: boolean
+  trimWhitespace: boolean
+  lineEndingSensitive: boolean
+  inlineDiffMode: "char" | "word" | "none"
+  autoCompare: boolean
+  showLineNumbers: boolean
+  wrapLines: boolean
+  scrollLock: boolean
 }
 
 export const DEFAULT_SETTINGS: DiffSettings = {
@@ -57,11 +59,17 @@ interface SettingsPanelProps {
   onSettingsChange: (settings: DiffSettings) => void
 }
 
-export function SettingsPanel({ settings, onSettingsChange }: SettingsPanelProps) {
+export function SettingsPanel({
+  settings,
+  onSettingsChange,
+}: SettingsPanelProps) {
   const { theme, setTheme } = useTheme()
   const [isOpen, setIsOpen] = React.useState(false)
 
-  const updateSetting = <K extends keyof DiffSettings>(key: K, value: DiffSettings[K]) => {
+  const updateSetting = <K extends keyof DiffSettings>(
+    key: K,
+    value: DiffSettings[K]
+  ) => {
     onSettingsChange({
       ...settings,
       [key]: value,
@@ -75,280 +83,426 @@ export function SettingsPanel({ settings, onSettingsChange }: SettingsPanelProps
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 cursor-pointer shadow-xs">
+        <Button
+          variant="outline"
+          size="sm"
+          className="cursor-pointer gap-2 shadow-xs"
+        >
           <Settings className="h-4 w-4" />
           Settings
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px]">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden p-0 sm:max-w-[500px]">
+        <DialogHeader className="p-6 pb-2">
           <DialogTitle>Diff Settings</DialogTitle>
           <DialogDescription>
-            Configure options for comparing text. Preferences are saved automatically.
+            Configure options for comparing text. Preferences are saved
+            automatically.
           </DialogDescription>
         </DialogHeader>
 
-        <TooltipProvider>
-          <div className="grid gap-5 py-4">
-            {/* Case Sensitive */}
-            <div className="flex items-center justify-between border-b pb-3 border-border/40">
-              <div className="flex flex-col gap-1 pr-4">
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="caseSensitive" className="text-sm font-medium cursor-pointer">
-                    Case Sensitive
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[240px] text-xs">
-                        When enabled, "A" and "a" will be treated as different. If disabled, casing difference is ignored.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <span className="text-xs text-muted-foreground">Distinguish uppercase and lowercase</span>
-              </div>
-              <Switch
-                id="caseSensitive"
-                checked={settings.caseSensitive}
-                onCheckedChange={(val) => updateSetting("caseSensitive", val)}
-              />
-            </div>
+        <Tabs
+          defaultValue="comparison"
+          className="flex flex-1 flex-col overflow-hidden"
+        >
+          <TabsList className="mx-6 w-[calc(100%-48px)] justify-start border border-border/50 bg-muted/50 p-0.5">
+            <TabsTrigger
+              value="comparison"
+              className="flex-1 cursor-pointer px-4 py-1.5 text-xs sm:flex-initial"
+            >
+              Comparison
+            </TabsTrigger>
+            <TabsTrigger
+              value="editor"
+              className="flex-1 cursor-pointer px-4 py-1.5 text-xs sm:flex-initial"
+            >
+              Editor & View
+            </TabsTrigger>
+            <TabsTrigger
+              value="behavior"
+              className="flex-1 cursor-pointer px-4 py-1.5 text-xs sm:flex-initial"
+            >
+              Behavior
+            </TabsTrigger>
+          </TabsList>
 
-            {/* Whitespace Sensitive */}
-            <div className="flex items-center justify-between border-b pb-3 border-border/40">
-              <div className="flex flex-col gap-1 pr-4">
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="whitespaceSensitive" className="text-sm font-medium cursor-pointer">
-                    Whitespace Sensitive
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[240px] text-xs">
-                        When enabled, changes in spaces or tabs are highlighted. If disabled, leading and trailing whitespaces are ignored.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <span className="text-xs text-muted-foreground">Highlight changes in spacing and tabs</span>
-              </div>
-              <Switch
-                id="whitespaceSensitive"
-                checked={settings.whitespaceSensitive}
-                onCheckedChange={(val) => updateSetting("whitespaceSensitive", val)}
-              />
-            </div>
+          <TooltipProvider>
+            <ScrollArea className="h-[320px] w-full flex-none px-6 py-4">
+              <div className="space-y-4 pr-3.5">
+                <TabsContent
+                  value="comparison"
+                  className="mt-0 space-y-4 outline-none"
+                >
+                  {/* Case Sensitive */}
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="caseSensitive"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Case Sensitive
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3.5 w-3.5 cursor-pointer text-muted-foreground hover:text-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-[240px] text-xs">
+                              When enabled, "A" and "a" will be treated as
+                              different. If disabled, casing difference is
+                              ignored.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Distinguish uppercase and lowercase
+                      </span>
+                    </div>
+                    <Switch
+                      id="caseSensitive"
+                      checked={settings.caseSensitive}
+                      onCheckedChange={(val) =>
+                        updateSetting("caseSensitive", val)
+                      }
+                    />
+                  </div>
 
-            {/* Trim Whitespace */}
-            <div className="flex items-center justify-between border-b pb-3 border-border/40">
-              <div className="flex flex-col gap-1 pr-4">
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="trimWhitespace" className="text-sm font-medium cursor-pointer">
-                    Trim Whitespace
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[240px] text-xs">
-                        When enabled, whitespaces at the end of lines are automatically stripped before running the comparison.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <span className="text-xs text-muted-foreground">Automatically strip trailing spaces on lines</span>
-              </div>
-              <Switch
-                id="trimWhitespace"
-                checked={settings.trimWhitespace}
-                onCheckedChange={(val) => updateSetting("trimWhitespace", val)}
-              />
-            </div>
+                  {/* Whitespace Sensitive */}
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="whitespaceSensitive"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Whitespace Sensitive
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3.5 w-3.5 cursor-pointer text-muted-foreground hover:text-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-[240px] text-xs">
+                              When enabled, changes in spaces or tabs are
+                              highlighted. If disabled, leading and trailing
+                              whitespaces are ignored.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Highlight changes in spacing and tabs
+                      </span>
+                    </div>
+                    <Switch
+                      id="whitespaceSensitive"
+                      checked={settings.whitespaceSensitive}
+                      onCheckedChange={(val) =>
+                        updateSetting("whitespaceSensitive", val)
+                      }
+                    />
+                  </div>
 
-            {/* CR / LF / CRLF Line Ending Sensitive */}
-            <div className="flex items-center justify-between border-b pb-3 border-border/40">
-              <div className="flex flex-col gap-1 pr-4">
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="lineEndingSensitive" className="text-sm font-medium cursor-pointer">
-                    Line Ending Sensitive (CR/LF)
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[240px] text-xs">
-                        When enabled, differences between Windows line endings (\r\n) and Unix line endings (\n) are treated as diffs. If disabled, line endings are normalized.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <span className="text-xs text-muted-foreground">Compare carriage returns and line feeds</span>
-              </div>
-              <Switch
-                id="lineEndingSensitive"
-                checked={settings.lineEndingSensitive}
-                onCheckedChange={(val) => updateSetting("lineEndingSensitive", val)}
-              />
-            </div>
+                  {/* Trim Whitespace */}
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="trimWhitespace"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Trim Whitespace
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3.5 w-3.5 cursor-pointer text-muted-foreground hover:text-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-[240px] text-xs">
+                              When enabled, whitespaces at the end of lines are
+                              automatically stripped before running the
+                              comparison.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Automatically strip trailing spaces on lines
+                      </span>
+                    </div>
+                    <Switch
+                      id="trimWhitespace"
+                      checked={settings.trimWhitespace}
+                      onCheckedChange={(val) =>
+                        updateSetting("trimWhitespace", val)
+                      }
+                    />
+                  </div>
 
-            {/* Inline Diff Mode */}
-            <div className="flex items-center justify-between border-b pb-3 border-border/40">
-              <div className="flex flex-col gap-1 pr-4">
-                <div className="flex items-center gap-1.5">
-                  <Label className="text-sm font-medium">Inline Diff Highlighting</Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[240px] text-xs">
-                        Select how to highlight specific edits within modified lines. Character-level is most detailed, while Word-level is cleaner for text paragraphs.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <span className="text-xs text-muted-foreground">How details inside lines are highlighted</span>
-              </div>
-              <Select
-                value={settings.inlineDiffMode}
-                onValueChange={(val) => updateSetting("inlineDiffMode", val as "char" | "word" | "none")}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Select mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="char">Character-level</SelectItem>
-                  <SelectItem value="word">Word-level</SelectItem>
-                  <SelectItem value="none">None</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                  {/* CR / LF / CRLF Line Ending Sensitive */}
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="lineEndingSensitive"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Line Ending Sensitive (CR/LF)
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3.5 w-3.5 cursor-pointer text-muted-foreground hover:text-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-[240px] text-xs">
+                              When enabled, differences between Windows line
+                              endings (\r\n) and Unix line endings (\n) are
+                              treated as diffs. If disabled, line endings are
+                              normalized.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Compare carriage returns and line feeds
+                      </span>
+                    </div>
+                    <Switch
+                      id="lineEndingSensitive"
+                      checked={settings.lineEndingSensitive}
+                      onCheckedChange={(val) =>
+                        updateSetting("lineEndingSensitive", val)
+                      }
+                    />
+                  </div>
 
-            {/* Auto Compare */}
-            <div className="flex items-center justify-between border-b pb-3 border-border/40">
-              <div className="flex flex-col gap-1 pr-4">
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="autoCompare" className="text-sm font-medium cursor-pointer">
-                    Auto-Compare
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[240px] text-xs">
-                        When enabled, the comparison updates immediately as you type (debounced). When disabled, you must click the Compare button.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <span className="text-xs text-muted-foreground">Run diff automatically on input change</span>
-              </div>
-              <Switch
-                id="autoCompare"
-                checked={settings.autoCompare}
-                onCheckedChange={(val) => updateSetting("autoCompare", val)}
-              />
-            </div>
+                  {/* Inline Diff Mode */}
+                  <div className="flex items-center justify-between pb-1">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm font-medium">
+                          Inline Diff Highlighting
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3.5 w-3.5 cursor-pointer text-muted-foreground hover:text-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-[240px] text-xs">
+                              Select how to highlight specific edits within
+                              modified lines. Character-level is most detailed,
+                              while Word-level is cleaner for text paragraphs.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        How details inside lines are highlighted
+                      </span>
+                    </div>
+                    <Select
+                      value={settings.inlineDiffMode}
+                      onValueChange={(val) =>
+                        updateSetting(
+                          "inlineDiffMode",
+                          val as "char" | "word" | "none"
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-[140px] cursor-pointer">
+                        <SelectValue placeholder="Select mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="char" className="cursor-pointer">
+                          Character-level
+                        </SelectItem>
+                        <SelectItem value="word" className="cursor-pointer">
+                          Word-level
+                        </SelectItem>
+                        <SelectItem value="none" className="cursor-pointer">
+                          None
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TabsContent>
 
-            {/* Scroll Lock */}
-            <div className="flex items-center justify-between border-b pb-3 border-border/40">
-              <div className="flex flex-col gap-1 pr-4">
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="scrollLock" className="text-sm font-medium cursor-pointer">
-                    Sync Scrolling (Scroll Lock)
-                  </Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-pointer" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-[240px] text-xs">
-                        When enabled, scrolling either column will scroll the other at the same time to keep the comparison aligned.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <span className="text-xs text-muted-foreground">Keep split view scrolling synchronized</span>
-              </div>
-              <Switch
-                id="scrollLock"
-                checked={settings.scrollLock}
-                onCheckedChange={(val) => updateSetting("scrollLock", val)}
-              />
-            </div>
+                <TabsContent
+                  value="editor"
+                  className="mt-0 space-y-4 outline-none"
+                >
+                  {/* Scroll Lock */}
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="scrollLock"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Sync Scrolling (Scroll Lock)
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3.5 w-3.5 cursor-pointer text-muted-foreground hover:text-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-[240px] text-xs">
+                              When enabled, scrolling either column will scroll
+                              the other at the same time to keep the comparison
+                              aligned.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Keep split view scrolling synchronized
+                      </span>
+                    </div>
+                    <Switch
+                      id="scrollLock"
+                      checked={settings.scrollLock}
+                      onCheckedChange={(val) =>
+                        updateSetting("scrollLock", val)
+                      }
+                    />
+                  </div>
 
-            {/* Show Line Numbers */}
-            <div className="flex items-center justify-between border-b pb-3 border-border/40">
-              <div className="flex flex-col gap-1 pr-4">
-                <Label htmlFor="showLineNumbers" className="text-sm font-medium cursor-pointer">
-                  Show Line Numbers
-                </Label>
-                <span className="text-xs text-muted-foreground">Show line counts in visual diff pane</span>
-              </div>
-              <Switch
-                id="showLineNumbers"
-                checked={settings.showLineNumbers}
-                onCheckedChange={(val) => updateSetting("showLineNumbers", val)}
-              />
-            </div>
+                  {/* Show Line Numbers */}
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <Label
+                        htmlFor="showLineNumbers"
+                        className="cursor-pointer text-sm font-medium"
+                      >
+                        Show Line Numbers
+                      </Label>
+                      <span className="text-xs text-muted-foreground">
+                        Show line counts in visual diff pane
+                      </span>
+                    </div>
+                    <Switch
+                      id="showLineNumbers"
+                      checked={settings.showLineNumbers}
+                      onCheckedChange={(val) =>
+                        updateSetting("showLineNumbers", val)
+                      }
+                    />
+                  </div>
 
-            {/* Wrap Lines */}
-            <div className="flex items-center justify-between border-b pb-3 border-border/40">
-              <div className="flex flex-col gap-1 pr-4">
-                <Label htmlFor="wrapLines" className="text-sm font-medium cursor-pointer">
-                  Wrap Lines
-                </Label>
-                <span className="text-xs text-muted-foreground">Soft-wrap lines that overflow the container</span>
-              </div>
-              <Switch
-                id="wrapLines"
-                checked={settings.wrapLines}
-                onCheckedChange={(val) => updateSetting("wrapLines", val)}
-              />
-            </div>
+                  {/* Wrap Lines */}
+                  <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <Label
+                        htmlFor="wrapLines"
+                        className="cursor-pointer text-sm font-medium"
+                      >
+                        Wrap Lines
+                      </Label>
+                      <span className="text-xs text-muted-foreground">
+                        Soft-wrap lines that overflow the container
+                      </span>
+                    </div>
+                    <Switch
+                      id="wrapLines"
+                      checked={settings.wrapLines}
+                      onCheckedChange={(val) => updateSetting("wrapLines", val)}
+                    />
+                  </div>
 
-            {/* Theme Selection */}
-            <div className="flex items-center justify-between pb-1">
-              <div className="flex flex-col gap-1 pr-4">
-                <Label className="text-sm font-medium">Color Theme</Label>
-                <span className="text-xs text-muted-foreground">Select color appearance style</span>
-              </div>
-              <Select
-                value={theme}
-                onValueChange={(val) => setTheme(val as "light" | "dark" | "system")}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Theme" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="dark">Dark</SelectItem>
-                  <SelectItem value="system">System</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </TooltipProvider>
+                  {/* Theme Selection */}
+                  <div className="flex items-center justify-between pb-1">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <Label className="text-sm font-medium">Color Theme</Label>
+                      <span className="text-xs text-muted-foreground">
+                        Select color appearance style
+                      </span>
+                    </div>
+                    <Select
+                      value={theme}
+                      onValueChange={(val) =>
+                        setTheme(val as "light" | "dark" | "system")
+                      }
+                    >
+                      <SelectTrigger className="w-[140px] cursor-pointer">
+                        <SelectValue placeholder="Theme" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="light" className="cursor-pointer">
+                          Light
+                        </SelectItem>
+                        <SelectItem value="dark" className="cursor-pointer">
+                          Dark
+                        </SelectItem>
+                        <SelectItem value="system" className="cursor-pointer">
+                          System
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TabsContent>
 
-        <DialogFooter className="flex sm:justify-between items-center w-full gap-2 border-t pt-4">
+                <TabsContent
+                  value="behavior"
+                  className="mt-0 space-y-4 outline-none"
+                >
+                  {/* Auto Compare */}
+                  <div className="flex items-center justify-between pb-1">
+                    <div className="flex flex-col gap-1 pr-4">
+                      <div className="flex items-center gap-1.5">
+                        <Label
+                          htmlFor="autoCompare"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Auto-Compare
+                        </Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-3.5 w-3.5 cursor-pointer text-muted-foreground hover:text-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-[240px] text-xs">
+                              When enabled, the comparison updates immediately
+                              as you type (debounced). When disabled, you must
+                              click the Compare button.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        Run diff automatically on input change
+                      </span>
+                    </div>
+                    <Switch
+                      id="autoCompare"
+                      checked={settings.autoCompare}
+                      onCheckedChange={(val) =>
+                        updateSetting("autoCompare", val)
+                      }
+                    />
+                  </div>
+                </TabsContent>
+              </div>
+            </ScrollArea>
+          </TooltipProvider>
+        </Tabs>
+
+        <DialogFooter className="flex w-full items-center gap-2 border-t bg-muted/20 px-6 py-4 sm:justify-between">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleReset}
-            className="text-xs gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+            className="cursor-pointer gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <RotateCcw className="h-3 w-3" />
             Reset Defaults
           </Button>
-          <Button size="sm" onClick={() => setIsOpen(false)} className="cursor-pointer">
+          <Button
+            size="sm"
+            onClick={() => setIsOpen(false)}
+            className="cursor-pointer"
+          >
             Close
           </Button>
         </DialogFooter>
