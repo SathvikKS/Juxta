@@ -14,13 +14,12 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Kbd } from "@/components/ui/kbd"
 import { Switch } from "@/components/ui/switch"
+import { SettingsPanel } from "./SettingsPanel"
 import {
-  SettingsPanel,
-  DEFAULT_SETTINGS,
-  PRESETS,
-  checkPresetStatus,
-} from "./SettingsPanel"
-import type { DiffSettings, PresetType } from "./SettingsPanel"
+  hydrateSettings,
+  settingsReducer,
+} from "./settingsEngine"
+import type { DiffSettings, PresetType } from "./settingsEngine"
 import type { SettingCategory } from "./settingsSchema"
 import { CommandMenu } from "./CommandMenu"
 import { StatsBar } from "./StatsBar"
@@ -118,17 +117,11 @@ export default function DiffChecker() {
   } | null>(null)
 
   // Settings
-  const [settings, setSettings] = React.useState<DiffSettings>(() => {
-    const saved = localStorage.getItem("diff_settings")
-    if (saved) {
-      try {
-        return checkPresetStatus({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) })
-      } catch {
-        return DEFAULT_SETTINGS
-      }
-    }
-    return DEFAULT_SETTINGS
-  })
+  const [settings, dispatchSettings] = React.useReducer(
+    settingsReducer,
+    undefined,
+    () => hydrateSettings(localStorage.getItem("diff_settings"))
+  )
 
   // Settings Panel state control
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
@@ -260,22 +253,19 @@ export default function DiffChecker() {
     return isKeyValueFormat(originalText) || isKeyValueFormat(changedText)
   }, [originalText, changedText])
 
+  const handleSettingChange = (
+    key: keyof DiffSettings,
+    value: DiffSettings[keyof DiffSettings]
+  ) => {
+    dispatchSettings({ type: "updateSetting", key, value })
+  }
+
+  const handleResetSettings = () => {
+    dispatchSettings({ type: "reset" })
+  }
+
   const handleApplyPreset = (presetId: PresetType) => {
-    if (presetId === "none") {
-      setSettings((prev) => ({
-        ...prev,
-        preset: "none",
-      }))
-    } else {
-      const presetConfig = PRESETS[presetId].settings
-      setSettings((prev) =>
-        checkPresetStatus({
-          ...prev,
-          ...presetConfig,
-          preset: presetId,
-        })
-      )
-    }
+    dispatchSettings({ type: "applyPreset", presetId })
   }
 
   const showKeyValBanner =
@@ -343,30 +333,39 @@ export default function DiffChecker() {
   }))
 
   React.useEffect(() => {
-    setIsComputing(true)
+    let computeTimer: ReturnType<typeof setTimeout> | undefined
 
-    // Defer computation so React can render the skeleton frame first
-    const timer = setTimeout(() => {
-      const aligned = computeAlignedDiff(
-        comparedState.original,
-        comparedState.changed,
-        getDiffOptions(comparedState.settings)
-      )
-      const unified = computeUnifiedDiff(
-        comparedState.original,
-        comparedState.changed,
-        getDiffOptions(comparedState.settings)
-      )
-      const sim = computeSimilarity(
-        comparedState.original,
-        comparedState.changed,
-        getDiffOptions(comparedState.settings)
-      )
-      setDiffResult({ alignedLines: aligned, unifiedLines: unified, similarity: sim })
-      setIsComputing(false)
+    // Defer computation so React can render the skeleton frame first.
+    const loadingTimer = setTimeout(() => {
+      setIsComputing(true)
+
+      computeTimer = setTimeout(() => {
+        const aligned = computeAlignedDiff(
+          comparedState.original,
+          comparedState.changed,
+          getDiffOptions(comparedState.settings)
+        )
+        const unified = computeUnifiedDiff(
+          comparedState.original,
+          comparedState.changed,
+          getDiffOptions(comparedState.settings)
+        )
+        const sim = computeSimilarity(
+          comparedState.original,
+          comparedState.changed,
+          getDiffOptions(comparedState.settings)
+        )
+        setDiffResult({ alignedLines: aligned, unifiedLines: unified, similarity: sim })
+        setIsComputing(false)
+      }, 0)
     }, 0)
 
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(loadingTimer)
+      if (computeTimer) {
+        clearTimeout(computeTimer)
+      }
+    }
   }, [comparedState, getDiffOptions])
 
   const { alignedLines, unifiedLines, similarity } = diffResult
@@ -670,7 +669,8 @@ export default function DiffChecker() {
 
           <SettingsPanel
             settings={settings}
-            onSettingsChange={setSettings}
+            onSettingChange={handleSettingChange}
+            onResetSettings={handleResetSettings}
             isOpen={isSettingsOpen}
             onOpenChange={setIsSettingsOpen}
             activeTab={settingsActiveTab}
@@ -825,13 +825,13 @@ export default function DiffChecker() {
         open={isCommandMenuOpen}
         onOpenChange={setIsCommandMenuOpen}
         settings={settings}
-        onSettingsChange={setSettings}
+        onSettingChange={handleSettingChange}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onClearAll={handleClearAll}
         onSwap={handleSwap}
         onOpenSettingsPanel={handleOpenSettingsPanel}
-        onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
+        onResetSettings={handleResetSettings}
       />
     </div>
   )

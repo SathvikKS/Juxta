@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/dialog"
 import { useTheme } from "@/components/theme-provider"
 import { SETTINGS_SCHEMA } from "./settingsSchema"
-import { checkPresetStatus, PRESETS } from "./SettingsPanel"
-import type { DiffSettings } from "./SettingsPanel"
+import { PRESETS } from "./settingsEngine"
+import type { DiffSettings } from "./settingsEngine"
 import type { SettingCategory } from "./settingsSchema"
 import {
   Type,
@@ -78,7 +78,10 @@ interface CommandMenuProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   settings: DiffSettings
-  onSettingsChange: (settings: DiffSettings) => void
+  onSettingChange: (
+    key: keyof DiffSettings,
+    value: DiffSettings[keyof DiffSettings]
+  ) => void
   viewMode: "split" | "unified"
   onViewModeChange: (mode: "split" | "unified") => void
   onClearAll: () => void
@@ -88,6 +91,8 @@ interface CommandMenuProps {
 }
 
 type ViewState = "root" | "custom-auto-compare"
+type ThemeValue = "light" | "dark" | "system"
+type SelectSettingValue = DiffSettings[keyof DiffSettings] | ThemeValue
 
 // Helper to resolve a distinct, colorful icon for each settings item
 function getSettingIcon(key: string) {
@@ -125,7 +130,7 @@ export function CommandMenu({
   open,
   onOpenChange,
   settings,
-  onSettingsChange,
+  onSettingChange,
   viewMode,
   onViewModeChange,
   onClearAll,
@@ -179,34 +184,22 @@ export function CommandMenu({
   }
 
   const toggleSwitchSetting = (key: keyof DiffSettings) => {
-    onSettingsChange(
-      checkPresetStatus({
-        ...settings,
-        [key]: !settings[key],
-      })
-    )
+    onSettingChange(key, !settings[key] as DiffSettings[keyof DiffSettings])
   }
 
-  const setSelectSetting = (key: keyof DiffSettings | "theme", value: any) => {
+  const setSelectSetting = (
+    key: keyof DiffSettings | "theme",
+    value: SelectSettingValue
+  ) => {
     if (key === "theme") {
-      setTheme(value)
+      setTheme(value as ThemeValue)
     } else {
-      onSettingsChange(
-        checkPresetStatus({
-          ...settings,
-          [key]: value,
-        })
-      )
+      onSettingChange(key, value as DiffSettings[keyof DiffSettings])
     }
   }
 
   const setNumericSetting = (key: keyof DiffSettings, value: number, shouldClose = false) => {
-    onSettingsChange(
-      checkPresetStatus({
-        ...settings,
-        [key]: value,
-      })
-    )
+    onSettingChange(key, value)
     if (shouldClose) {
       onOpenChange(false)
     }
@@ -416,7 +409,12 @@ export function CommandMenu({
                             <CommandItem
                               key={`${setting.key}-${opt.value}`}
                               value={`Set ${setting.label} to ${opt.label}`}
-                              onSelect={() => setSelectSetting(setting.key, opt.value)}
+                              onSelect={() =>
+                                setSelectSetting(
+                                  setting.key,
+                                  opt.value as SelectSettingValue
+                                )
+                              }
                               className="cursor-pointer flex items-center justify-between p-2.5 rounded-lg! transition-all"
                               data-checked={isOptionChecked}
                             >

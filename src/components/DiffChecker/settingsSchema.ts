@@ -1,4 +1,4 @@
-import type { DiffSettings } from "./SettingsPanel"
+import type { DiffSettings } from "./settingsEngine"
 
 export type SettingCategory = "comparison" | "editor" | "behavior"
 
@@ -23,7 +23,7 @@ export type SettingDefinition =
       tooltip?: string
       category: SettingCategory
       type: "select"
-      options: SettingOption<any>[]
+      options: SettingOption<string>[]
     }
   | {
       key: keyof DiffSettings
