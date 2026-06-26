@@ -1,5 +1,9 @@
-import { PRESETS } from "./presetDefinitions"
-import type { PresetDefinition } from "./presetDefinitions"
+import { PRESETS } from "./presets"
+import type {
+  PresetDefinition,
+  PresetOptions,
+  PresetOptionValue,
+} from "./presets"
 
 export type PresetType = "none" | "env"
 
@@ -8,6 +12,7 @@ type ActivePresetType = Exclude<PresetType, "none">
 export interface ActivePresetState {
   id: ActivePresetType
   previousValues: Partial<DiffSettingData>
+  options: PresetOptions
 }
 
 export interface DiffSettings {
@@ -55,10 +60,15 @@ export const DEFAULT_SETTINGS: DiffSettings = {
   autoDetectPresets: true,
 }
 
-export type { PresetDefinition }
+export type { PresetDefinition, PresetOptionValue }
 
 export type SettingsAction =
   | { type: "applyPreset"; presetId: PresetType }
+  | {
+      type: "updatePresetOption"
+      key: string
+      value: PresetOptionValue
+    }
   | {
       type: "updateSetting"
       key: keyof DiffSettings
@@ -67,7 +77,7 @@ export type SettingsAction =
   | { type: "reset" }
 
 const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS).filter(
-  (key) => key !== "preset"
+  (key) => key !== "preset" && key !== "presetState"
 ) as PresetControlledSettingKey[]
 
 function writeSetting<K extends PresetControlledSettingKey>(
@@ -83,17 +93,85 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isPresetType(value: unknown): value is PresetType {
-  return value === "none" || value === "env"
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(PRESETS, value)
+  )
 }
 
 function isActivePresetType(value: unknown): value is ActivePresetType {
-  return value === "env"
+  return (
+    typeof value === "string" &&
+    value !== "none" &&
+    Object.prototype.hasOwnProperty.call(PRESETS, value)
+  )
 }
 
 function isPresetControlledSettingKey(
   value: string
 ): value is PresetControlledSettingKey {
   return SETTING_KEYS.includes(value as PresetControlledSettingKey)
+}
+
+function getPresetOptionDefinitions(presetId: PresetType) {
+  return PRESETS[presetId]?.options ?? []
+}
+
+function getPresetOptionDefaults(presetId: PresetType): PresetOptions {
+  return getPresetOptionDefinitions(presetId).reduce<PresetOptions>(
+    (options, definition) => {
+      options[definition.key] = definition.defaultValue
+      return options
+    },
+    {}
+  )
+}
+
+function sanitizePresetOptions(
+  value: unknown,
+  presetId: PresetType
+): PresetOptions {
+  const options = getPresetOptionDefaults(presetId)
+  if (!isRecord(value)) {
+    return options
+  }
+
+  for (const definition of getPresetOptionDefinitions(presetId)) {
+    const optionValue = value[definition.key]
+    if (typeof optionValue === typeof definition.defaultValue) {
+      options[definition.key] = optionValue as PresetOptionValue
+    }
+  }
+
+  return options
+}
+
+function presetDefinesOption(settings: DiffSettings, key: string): boolean {
+  if (settings.preset === "none") {
+    return false
+  }
+
+  return getPresetOptionDefinitions(settings.preset).some(
+    (definition) => definition.key === key
+  )
+}
+
+export function getActivePresetDefinition(
+  settings: DiffSettings
+): PresetDefinition | undefined {
+  if (settings.preset === "none") {
+    return undefined
+  }
+
+  return PRESETS[settings.preset]
+}
+
+export function getActivePresetOptions(settings: DiffSettings): PresetOptions {
+  if (settings.preset === "none") {
+    return {}
+  }
+
+  return sanitizePresetOptions(settings.presetState?.options, settings.preset)
 }
 
 function isCompatibleSettingValue<K extends PresetControlledSettingKey>(
@@ -170,6 +248,7 @@ function sanitizePresetState(
   return {
     id: presetId,
     previousValues,
+    options: sanitizePresetOptions(value.options, presetId),
   }
 }
 
@@ -288,6 +367,35 @@ export function applyPreset(
     presetState: {
       id: presetId,
       previousValues,
+      options: getPresetOptionDefaults(presetId),
+    },
+  }
+}
+
+export function updatePresetOption(
+  settings: DiffSettings,
+  key: string,
+  value: PresetOptionValue
+): DiffSettings {
+  if (
+    settings.preset === "none" ||
+    !settings.presetState ||
+    settings.presetState.id !== settings.preset ||
+    !presetDefinesOption(settings, key)
+  ) {
+    return settings
+  }
+
+  const options = {
+    ...getActivePresetOptions(settings),
+    [key]: value,
+  }
+
+  return {
+    ...settings,
+    presetState: {
+      ...settings.presetState,
+      options,
     },
   }
 }
@@ -327,6 +435,8 @@ export function settingsReducer(
   switch (action.type) {
     case "applyPreset":
       return applyPreset(settings, action.presetId)
+    case "updatePresetOption":
+      return updatePresetOption(settings, action.key, action.value)
     case "updateSetting":
       return updateSetting(settings, action.key, action.value)
     case "reset":

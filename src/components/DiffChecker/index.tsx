@@ -13,13 +13,17 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Kbd } from "@/components/ui/kbd"
-import { Switch } from "@/components/ui/switch"
 import { SettingsPanel } from "./SettingsPanel"
+import { PresetOptionsPopover } from "./PresetOptionsPopover"
 import {
   hydrateSettings,
   settingsReducer,
 } from "./settingsEngine"
-import type { DiffSettings, PresetType } from "./settingsEngine"
+import type {
+  DiffSettings,
+  PresetOptionValue,
+  PresetType,
+} from "./settingsEngine"
 import type { SettingCategory } from "./settingsSchema"
 import { CommandMenu } from "./CommandMenu"
 import { StatsBar } from "./StatsBar"
@@ -140,7 +144,6 @@ export default function DiffChecker() {
   // Views & tabs
   const [activeTab, setActiveTab] = React.useState<string>("edit")
   const [viewMode, setViewMode] = React.useState<"split" | "unified">("split")
-  const [ignoreEnvValueChanges, setIgnoreEnvValueChanges] = React.useState(false)
 
   // Texts selected for the visual diff. Settings remain live render inputs so
   // preset changes do not leave the viewer showing a stale ready state.
@@ -256,6 +259,13 @@ export default function DiffChecker() {
     dispatchSettings({ type: "applyPreset", presetId })
   }
 
+  const handlePresetOptionChange = (
+    key: string,
+    value: PresetOptionValue
+  ) => {
+    dispatchSettings({ type: "updatePresetOption", key, value })
+  }
+
   const showKeyValBanner =
     settings.autoDetectPresets &&
     isKeyValueDetected &&
@@ -301,14 +311,8 @@ export default function DiffChecker() {
       original: comparedTexts.original,
       changed: comparedTexts.changed,
       settings,
-      ignoreEnvValueChanges,
     }),
-    [
-      comparedTexts.original,
-      comparedTexts.changed,
-      settings,
-      ignoreEnvValueChanges,
-    ]
+    [comparedTexts.original, comparedTexts.changed, settings]
   )
 
   const [renderState, dispatchRender] = React.useReducer(
@@ -591,21 +595,13 @@ export default function DiffChecker() {
   const addedCount = unifiedLines.filter((l) => l.type === "added").length
   const removedCount = unifiedLines.filter((l) => l.type === "removed").length
   const totalLines = alignedLines.length
-  const showEnvValueToggle = settings.preset === "env"
 
   const renderDiffControls = () => (
     <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
-      {showEnvValueToggle && (
-        <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-xs font-semibold shadow-xs">
-          <Switch
-            size="sm"
-            checked={ignoreEnvValueChanges}
-            onCheckedChange={setIgnoreEnvValueChanges}
-            aria-label="Ignore .env value changes"
-          />
-          <span className="text-muted-foreground">Ignore values</span>
-        </label>
-      )}
+      <PresetOptionsPopover
+        settings={settings}
+        onPresetOptionChange={handlePresetOptionChange}
+      />
       <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
         <Button
           variant={viewMode === "split" ? "secondary" : "ghost"}

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { useTheme } from "@/components/theme-provider"
 import { SETTINGS_SCHEMA } from "./settingsSchema"
-import { PRESETS } from "./presetDefinitions"
+import { PRESETS } from "./presets"
 import type { DiffSettings } from "./settingsEngine"
 import type { SettingCategory } from "./settingsSchema"
 import {

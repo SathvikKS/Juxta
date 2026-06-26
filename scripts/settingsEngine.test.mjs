@@ -1,16 +1,25 @@
 import assert from "node:assert/strict"
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import test from "node:test"
 import { pathToFileURL } from "node:url"
 import ts from "typescript"
 
 const outDir = join(tmpdir(), "juxta-settings-engine-test")
-const outPath = join(outDir, "settingsEngine.mjs")
-const presetOutPath = join(outDir, "presetDefinitions.mjs")
+const checkerOutDir = join(outDir, "src/components/DiffChecker")
+const presetsOutDir = join(checkerOutDir, "presets")
+const libOutDir = join(outDir, "src/lib")
+const outPath = join(checkerOutDir, "settingsEngine.mjs")
+const presetOutPath = join(presetsOutDir, "index.mjs")
+const diffEngineOutPath = join(libOutDir, "diffEngine.mjs")
+const diffRenderOutPath = join(checkerOutDir, "diffRenderEngine.mjs")
+const diffPackageUrl = pathToFileURL(
+  resolve("node_modules/diff/libesm/index.js")
+).href
 
-mkdirSync(outDir, { recursive: true })
+mkdirSync(presetsOutDir, { recursive: true })
+mkdirSync(libOutDir, { recursive: true })
 
 function transpileFile(sourcePath) {
   return ts.transpileModule(readFileSync(sourcePath, "utf8"), {
@@ -22,25 +31,43 @@ function transpileFile(sourcePath) {
   }).outputText
 }
 
-const engineOutput = transpileFile(
-  resolve("src/components/DiffChecker/settingsEngine.ts")
-).replace("./presetDefinitions", "./presetDefinitions.mjs")
-const presetOutput = transpileFile(
-  resolve("src/components/DiffChecker/presetDefinitions.ts")
-)
+function writeTranspiled(sourcePath, outputPath, replacements = []) {
+  let output = transpileFile(resolve(sourcePath))
+  for (const [from, to] of replacements) {
+    output = output.replaceAll(from, to)
+  }
 
-writeFileSync(outPath, engineOutput)
-writeFileSync(presetOutPath, presetOutput)
+  mkdirSync(dirname(outputPath), { recursive: true })
+  writeFileSync(outputPath, output)
+}
+
+writeTranspiled("src/lib/diffEngine.ts", diffEngineOutPath, [
+  ['from "diff"', `from "${diffPackageUrl}"`],
+])
+writeTranspiled("src/components/DiffChecker/presets/env.ts", join(presetsOutDir, "env.mjs"))
+writeTranspiled("src/components/DiffChecker/presets/index.ts", presetOutPath, [
+  ['from "./env"', 'from "./env.mjs"'],
+])
+writeTranspiled("src/components/DiffChecker/settingsEngine.ts", outPath, [
+  ['from "./presets"', 'from "./presets/index.mjs"'],
+])
+writeTranspiled("src/components/DiffChecker/diffRenderEngine.ts", diffRenderOutPath, [
+  ['from "@/lib/diffEngine"', 'from "../../lib/diffEngine.mjs"'],
+  ['from "./settingsEngine"', 'from "./settingsEngine.mjs"'],
+])
 
 const {
   DEFAULT_SETTINGS,
   applyPreset,
+  getActivePresetOptions,
   hydrateSettings,
   removePreset,
   settingsReducer,
   updateSetting,
+  updatePresetOption,
 } = await import(pathToFileURL(outPath).href)
 const { PRESETS } = await import(pathToFileURL(presetOutPath).href)
+const { buildDiffRenderResult } = await import(pathToFileURL(diffRenderOutPath).href)
 
 function withoutPresetState(settings) {
   const copy = { ...settings }
@@ -65,6 +92,15 @@ test("applying a preset records only settings that changed", () => {
     "whitespaceSensitive",
   ])
   assert.equal(applied.lineEndingSensitive, false)
+})
+
+test("applying a preset initializes preset-only option defaults", () => {
+  const applied = applyPreset(DEFAULT_SETTINGS, "env")
+
+  assert.deepEqual(applied.presetState?.options, {
+    ignoreValues: false,
+    showDiffOnly: false,
+  })
 })
 
 test("removing a preset restores recorded deltas", () => {
@@ -99,6 +135,18 @@ test("unrelated manual setting changes keep the preset active", () => {
   assert.deepEqual(updated.presetState, applied.presetState)
   assert.equal(removed.showLineNumbers, false)
   assert.equal(removed.sortKeyValuePairs, false)
+})
+
+test("preset-only option changes stay in preset state", () => {
+  const applied = applyPreset(DEFAULT_SETTINGS, "env")
+  const updated = updatePresetOption(applied, "showDiffOnly", true)
+  const removed = removePreset(updated)
+
+  assert.equal(updated.preset, "env")
+  assert.equal(updated.presetState?.options.showDiffOnly, true)
+  assert.equal(updated.presetState?.previousValues, applied.presetState?.previousValues)
+  assert.equal(removed.preset, "none")
+  assert.equal(removed.presetState, undefined)
 })
 
 test("manual changes to preset-controlled settings exit preset mode", () => {
@@ -145,6 +193,28 @@ test("saved presets with delta metadata hydrate as active presets", () => {
   assert.deepEqual(hydrated.presetState, applied.presetState)
 })
 
+test("saved preset options hydrate with defaults and known overrides only", () => {
+  const applied = applyPreset(DEFAULT_SETTINGS, "env")
+  const hydrated = hydrateSettings(
+    JSON.stringify({
+      ...applied,
+      presetState: {
+        ...applied.presetState,
+        options: {
+          ignoreValues: true,
+          showDiffOnly: "yes",
+          unknownOption: true,
+        },
+      },
+    })
+  )
+
+  assert.deepEqual(hydrated.presetState?.options, {
+    ignoreValues: true,
+    showDiffOnly: false,
+  })
+})
+
 test("legacy active env preset migrates split trim settings", () => {
   const legacyActivePreset = JSON.stringify({
     ...DEFAULT_SETTINGS,
@@ -180,4 +250,55 @@ test("sequential reducer actions do not corrupt preset deltas", () => {
   state = settingsReducer(state, { type: "applyPreset", presetId: "none" })
 
   assert.deepEqual(withoutPresetState(state), DEFAULT_SETTINGS)
+})
+
+test("env ignoreValues option is applied through preset runtime behavior", () => {
+  const settings = settingsReducer(
+    applyPreset(DEFAULT_SETTINGS, "env"),
+    { type: "updatePresetOption", key: "ignoreValues", value: true }
+  )
+  const result = buildDiffRenderResult({
+    original: "A=1\nB=2",
+    changed: "A=9\nB=2",
+    settings,
+  })
+
+  assert.equal(getActivePresetOptions(settings).ignoreValues, true)
+  assert.equal(result.similarity, 100)
+  assert.equal(result.unifiedLines.every((line) => line.type === "normal"), true)
+})
+
+test("env showDiffOnly option hides matching rendered rows", () => {
+  const settings = settingsReducer(
+    applyPreset(DEFAULT_SETTINGS, "env"),
+    { type: "updatePresetOption", key: "showDiffOnly", value: true }
+  )
+  const result = buildDiffRenderResult({
+    original: "A=1\nB=2\nC=3",
+    changed: "A=1\nB=9\nC=3",
+    settings,
+  })
+
+  assert.equal(result.alignedLines.length, 1)
+  assert.deepEqual(
+    result.unifiedLines.map((line) => line.type),
+    ["removed", "added"]
+  )
+})
+
+test("inactive preset-only options do not affect rendering", () => {
+  const withEnvOption = settingsReducer(
+    applyPreset(DEFAULT_SETTINGS, "env"),
+    { type: "updatePresetOption", key: "ignoreValues", value: true }
+  )
+  const customSettings = removePreset(withEnvOption)
+  const result = buildDiffRenderResult({
+    original: "A=1",
+    changed: "A=9",
+    settings: customSettings,
+  })
+
+  assert.equal(customSettings.preset, "none")
+  assert.equal(result.similarity < 100, true)
+  assert.equal(result.unifiedLines.some((line) => line.type !== "normal"), true)
 })

@@ -4,13 +4,16 @@ import {
   computeUnifiedDiff,
 } from "@/lib/diffEngine"
 import type { AlignedLine, UnifiedLine } from "@/lib/diffEngine"
+import {
+  getActivePresetDefinition,
+  getActivePresetOptions,
+} from "./settingsEngine"
 import type { DiffSettings } from "./settingsEngine"
 
 export interface DiffRenderRequest {
   original: string
   changed: string
   settings: DiffSettings
-  ignoreEnvValueChanges: boolean
 }
 
 export interface DiffRenderResult {
@@ -32,10 +35,12 @@ export type DiffRenderAction =
   | { type: "complete"; token: number; result: DiffRenderResult }
 
 function getDiffOptions(request: DiffRenderRequest) {
+  const activePreset = getActivePresetDefinition(request.settings)
+  const presetOptions = getActivePresetOptions(request.settings)
+
   return {
     ...request.settings,
-    ignoreKeyValueValueChanges:
-      request.settings.preset === "env" && request.ignoreEnvValueChanges,
+    ...activePreset?.getDiffOptions?.(presetOptions),
   }
 }
 
@@ -43,12 +48,15 @@ export function buildDiffRenderResult(
   request: DiffRenderRequest
 ): DiffRenderResult {
   const options = getDiffOptions(request)
-
-  return {
+  const activePreset = getActivePresetDefinition(request.settings)
+  const presetOptions = getActivePresetOptions(request.settings)
+  const result = {
     alignedLines: computeAlignedDiff(request.original, request.changed, options),
     unifiedLines: computeUnifiedDiff(request.original, request.changed, options),
     similarity: computeSimilarity(request.original, request.changed, options),
   }
+
+  return activePreset?.filterDiffResult?.(result, presetOptions) ?? result
 }
 
 export function createDiffRenderState(
@@ -69,8 +77,7 @@ export function isSameDiffRenderRequest(
   return (
     left.original === right.original &&
     left.changed === right.changed &&
-    left.settings === right.settings &&
-    left.ignoreEnvValueChanges === right.ignoreEnvValueChanges
+    left.settings === right.settings
   )
 }
 
