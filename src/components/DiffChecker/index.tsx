@@ -15,10 +15,7 @@ import { Card } from "@/components/ui/card"
 import { Kbd } from "@/components/ui/kbd"
 import { SettingsPanel } from "./SettingsPanel"
 import { PresetOptionsPopover } from "./PresetOptionsPopover"
-import {
-  hydrateSettings,
-  settingsReducer,
-} from "./settingsEngine"
+import { hydrateSettings, settingsReducer } from "./settingsEngine"
 import type {
   DiffSettings,
   PresetOptionValue,
@@ -75,7 +72,13 @@ function isKeyValueFormat(text: string): boolean {
   const lines = text
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l !== "" && !l.startsWith("#") && !l.startsWith("//") && !l.startsWith(";"))
+    .filter(
+      (l) =>
+        l !== "" &&
+        !l.startsWith("#") &&
+        !l.startsWith("//") &&
+        !l.startsWith(";")
+    )
 
   if (lines.length === 0) return false
 
@@ -131,8 +134,11 @@ export default function DiffChecker() {
 
   // Settings Panel state control
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
-  const [settingsActiveTab, setSettingsActiveTab] = React.useState<SettingCategory>("comparison")
-  const [highlightedSetting, setHighlightedSetting] = React.useState<string | null>(null)
+  const [settingsActiveTab, setSettingsActiveTab] =
+    React.useState<SettingCategory>("comparison")
+  const [highlightedSetting, setHighlightedSetting] = React.useState<
+    string | null
+  >(null)
   const [isCommandMenuOpen, setIsCommandMenuOpen] = React.useState(false)
 
   const handleOpenSettingsPanel = (category: SettingCategory, key: string) => {
@@ -259,10 +265,7 @@ export default function DiffChecker() {
     dispatchSettings({ type: "applyPreset", presetId })
   }
 
-  const handlePresetOptionChange = (
-    key: string,
-    value: PresetOptionValue
-  ) => {
+  const handlePresetOptionChange = (key: string, value: PresetOptionValue) => {
     dispatchSettings({ type: "updatePresetOption", key, value })
   }
 
@@ -275,19 +278,22 @@ export default function DiffChecker() {
   const renderPresetRecommendationBanner = () => {
     if (!showKeyValBanner) return null
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-xs md:text-sm animate-fade-in shrink-0">
+      <div className="animate-fade-in flex shrink-0 items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-xs md:text-sm">
         <div className="flex items-center gap-2.5">
-          <Sparkles className="h-4.5 w-4.5 text-primary shrink-0 animate-pulse" />
+          <Sparkles className="h-4.5 w-4.5 shrink-0 animate-pulse text-primary" />
           <span className="text-muted-foreground">
-            <strong className="text-foreground font-semibold">Environment/Properties format detected.</strong>{" "}
-            Apply the <span className="font-semibold text-primary">.env</span> preset to sort keys and ignore formatting differences?
+            <strong className="font-semibold text-foreground">
+              Environment/Properties format detected.
+            </strong>{" "}
+            Apply the <span className="font-semibold text-primary">.env</span>{" "}
+            preset to sort keys and ignore formatting differences?
           </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 text-xs font-semibold px-2.5 hover:bg-primary/15 hover:text-primary cursor-pointer"
+            className="h-7 cursor-pointer px-2.5 text-xs font-semibold hover:bg-primary/15 hover:text-primary"
             onClick={() => handleApplyPreset("env")}
           >
             Apply Preset
@@ -295,7 +301,7 @@ export default function DiffChecker() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer rounded-md"
+            className="h-7 w-7 cursor-pointer rounded-md text-muted-foreground hover:text-foreground"
             onClick={() => setDismissedKeyValTip(true)}
             title="Dismiss suggestion"
           >
@@ -476,14 +482,16 @@ export default function DiffChecker() {
   // Render Input Card Panes
   const renderInputPanes = (isCompact: boolean = false) => {
     return (
-      <div className={`grid min-h-0 ${isCompact ? "h-[360px] lg:h-[240px] shrink-0" : "flex-1"} grid-cols-1 items-stretch gap-5 lg:grid-cols-2 relative`}>
+      <div
+        className={`grid min-h-0 ${isCompact ? "h-[360px] shrink-0 lg:h-[240px]" : "flex-1"} relative grid-cols-1 items-stretch gap-5 lg:grid-cols-2`}
+      >
         {/* Left Input Pane: Original */}
         <Card
-          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs py-0 gap-0"
+          className="relative flex min-h-0 flex-1 flex-col gap-0 overflow-hidden border-border/70 bg-card py-0 shadow-xs"
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, "original")}
         >
-          <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium shrink-0">
+          <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium">
             <div className="flex items-center gap-2 text-muted-foreground">
               <FileText className="h-4 w-4" />
               <span>Original Text</span>
@@ -531,7 +539,7 @@ export default function DiffChecker() {
           <Button
             variant="outline"
             size="icon"
-            className="h-10 w-10 cursor-pointer rounded-full border border-border bg-background shadow-lg transition-transform duration-200 hover:scale-110 active:scale-95 hover:bg-muted"
+            className="h-10 w-10 cursor-pointer rounded-full border border-border bg-background shadow-lg transition-transform duration-200 hover:scale-110 hover:bg-muted active:scale-95"
             onClick={handleSwap}
             title="Swap contents"
           >
@@ -541,11 +549,11 @@ export default function DiffChecker() {
 
         {/* Right Input Pane: Changed */}
         <Card
-          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs py-0 gap-0"
+          className="relative flex min-h-0 flex-1 flex-col gap-0 overflow-hidden border-border/70 bg-card py-0 shadow-xs"
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, "changed")}
         >
-          <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium shrink-0">
+          <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium">
             <div className="flex items-center gap-2 text-muted-foreground">
               <FileText className="h-4 w-4" />
               <span>Changed Text</span>
@@ -629,7 +637,11 @@ export default function DiffChecker() {
       <div className="flex flex-col justify-between gap-4 border-b border-border/80 pb-5 md:flex-row md:items-center">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <img src="/juxta.svg" alt="Juxta Logo" className="h-9 w-9 select-none object-contain" />
+            <img
+              src="/juxta.svg"
+              alt="Juxta Logo"
+              className="h-9 w-9 object-contain select-none"
+            />
             <h1 className="bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text text-2xl font-bold tracking-tight text-transparent">
               Juxta
             </h1>
@@ -645,7 +657,7 @@ export default function DiffChecker() {
             value={settings.preset}
             onValueChange={(val) => handleApplyPreset(val as PresetType)}
           >
-            <SelectTrigger className="w-[150px] h-9 cursor-pointer text-xs font-semibold border-border bg-background shadow-xs">
+            <SelectTrigger className="h-9 w-[150px] cursor-pointer border-border bg-background text-xs font-semibold shadow-xs">
               <SelectValue placeholder="Preset: None" />
             </SelectTrigger>
             <SelectContent>
@@ -666,7 +678,7 @@ export default function DiffChecker() {
           >
             <Search className="h-4 w-4" />
             <span>Search</span>
-            <Kbd className="ml-0.5 text-[10px] scale-90 border-muted-foreground/30 bg-muted/50 text-muted-foreground select-none">
+            <Kbd className="ml-0.5 scale-90 border-muted-foreground/30 bg-muted/50 text-[10px] text-muted-foreground select-none">
               {isMac ? "⌘" : "Ctrl"}K
             </Kbd>
           </Button>
@@ -692,8 +704,6 @@ export default function DiffChecker() {
             <Trash2 className="h-4 w-4" />
             Clear
           </Button>
-
-
         </div>
       </div>
 
@@ -701,7 +711,7 @@ export default function DiffChecker() {
       {settings.autoCompare >= 0 ? (
         <div className="flex min-h-0 flex-1 flex-col gap-5">
           {renderInputPanes(true)}
-          
+
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             {renderPresetRecommendationBanner()}
             {/* Stats Bar with View Switcher */}
@@ -735,7 +745,8 @@ export default function DiffChecker() {
           <div
             className="flex h-full w-[200%] transition-transform duration-300 ease-in-out"
             style={{
-              transform: activeTab === "diff" ? "translateX(-50%)" : "translateX(0%)",
+              transform:
+                activeTab === "diff" ? "translateX(-50%)" : "translateX(0%)",
             }}
           >
             {/* Slide 1: Editor */}
@@ -803,7 +814,7 @@ export default function DiffChecker() {
               />
 
               {/* Bottom Action Controls */}
-              <div className="flex items-center justify-between gap-3 shrink-0 mt-1">
+              <div className="mt-1 flex shrink-0 items-center justify-between gap-3">
                 <Button
                   size="lg"
                   onClick={() => setActiveTab("edit")}
@@ -830,6 +841,7 @@ export default function DiffChecker() {
         onOpenChange={setIsCommandMenuOpen}
         settings={settings}
         onSettingChange={handleSettingChange}
+        onPresetOptionChange={handlePresetOptionChange}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onClearAll={handleClearAll}

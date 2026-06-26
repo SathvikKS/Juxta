@@ -5,7 +5,7 @@ import type { PresetType } from "../settingsEngine"
 export const PRESETS: Record<PresetType, PresetDefinition> = {
   none: {
     id: "none",
-    label: "None (Custom)",
+    label: "None",
     settings: {},
   },
   env: envPreset,
