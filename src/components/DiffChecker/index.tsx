@@ -26,17 +26,19 @@ import { StatsBar } from "./StatsBar"
 import { DiffViewer } from "./DiffViewer"
 import { TextEditor } from "./TextEditor"
 import {
+  buildDiffRenderResult,
+  createDiffRenderState,
+  diffRenderReducer,
+  isDiffRenderPending,
+  isSameDiffRenderRequest,
+} from "./diffRenderEngine"
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  computeAlignedDiff,
-  computeUnifiedDiff,
-  computeSimilarity,
-} from "@/lib/diffEngine"
 
 const SAMPLE_ORIGINAL = `// Offline Text Diff Checker
 // Paste your original code/text here.
@@ -140,26 +142,15 @@ export default function DiffChecker() {
   const [viewMode, setViewMode] = React.useState<"split" | "unified">("split")
   const [ignoreEnvValueChanges, setIgnoreEnvValueChanges] = React.useState(false)
 
-  // The actual texts and settings used to compute the visual diff.
-  // This decoupling prevents cascading updates and allows support for manual triggers.
-  const [comparedState, setComparedState] = React.useState<{
+  // Texts selected for the visual diff. Settings remain live render inputs so
+  // preset changes do not leave the viewer showing a stale ready state.
+  const [comparedTexts, setComparedTexts] = React.useState<{
     original: string
     changed: string
-    settings: DiffSettings
   }>(() => ({
     original: originalText,
     changed: changedText,
-    settings,
   }))
-
-  const getDiffOptions = React.useCallback(
-    (baseSettings: DiffSettings) => ({
-      ...baseSettings,
-      ignoreKeyValueValueChanges:
-        baseSettings.preset === "env" && ignoreEnvValueChanges,
-    }),
-    [ignoreEnvValueChanges]
-  )
 
   // Save texts to localStorage
   React.useEffect(() => {
@@ -177,12 +168,11 @@ export default function DiffChecker() {
 
   // Trigger manual compare
   const handleCompare = React.useCallback(() => {
-    setComparedState({
+    setComparedTexts({
       original: originalText,
       changed: changedText,
-      settings,
     })
-  }, [originalText, changedText, settings])
+  }, [originalText, changedText])
 
   // Detect if macOS for keyboard shortcut display
   const isMac = React.useMemo(() => {
@@ -212,31 +202,29 @@ export default function DiffChecker() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [settings.autoCompare, activeTab, handleCompare])
 
-  // Auto-compare logic: when inputs/settings change, update comparedState if autoCompare is on (>= 0)
+  // Auto-compare logic: when inputs change, update compared texts if autoCompare is on (>= 0).
   React.useEffect(() => {
     const delay = settings.autoCompare
     if (delay >= 0) {
       if (delay === 0) {
         const timer = setTimeout(() => {
-          setComparedState({
+          setComparedTexts({
             original: originalText,
             changed: changedText,
-            settings,
           })
         }, 0)
         return () => clearTimeout(timer)
       } else {
         const timer = setTimeout(() => {
-          setComparedState({
+          setComparedTexts({
             original: originalText,
             changed: changedText,
-            settings,
           })
         }, delay)
         return () => clearTimeout(timer)
       }
     }
-  }, [originalText, changedText, settings])
+  }, [originalText, changedText, settings.autoCompare])
 
   // Reset activeTab to "edit" when autoCompare is disabled (-1)
   React.useEffect(() => {
@@ -308,67 +296,86 @@ export default function DiffChecker() {
     )
   }
 
-  // Deferred diff computation: show skeleton while computing
-  const [isComputing, setIsComputing] = React.useState(false)
-  const [diffResult, setDiffResult] = React.useState<{
-    alignedLines: import("@/lib/diffEngine").AlignedLine[]
-    unifiedLines: import("@/lib/diffEngine").UnifiedLine[]
-    similarity: number
-  }>(() => ({
-    alignedLines: computeAlignedDiff(
-      comparedState.original,
-      comparedState.changed,
-      getDiffOptions(comparedState.settings)
-    ),
-    unifiedLines: computeUnifiedDiff(
-      comparedState.original,
-      comparedState.changed,
-      getDiffOptions(comparedState.settings)
-    ),
-    similarity: computeSimilarity(
-      comparedState.original,
-      comparedState.changed,
-      getDiffOptions(comparedState.settings)
-    ),
-  }))
+  const renderRequest = React.useMemo(
+    () => ({
+      original: comparedTexts.original,
+      changed: comparedTexts.changed,
+      settings,
+      ignoreEnvValueChanges,
+    }),
+    [
+      comparedTexts.original,
+      comparedTexts.changed,
+      settings,
+      ignoreEnvValueChanges,
+    ]
+  )
+
+  const [renderState, dispatchRender] = React.useReducer(
+    diffRenderReducer,
+    renderRequest,
+    createDiffRenderState
+  )
+  const renderTokenRef = React.useRef(renderState.token)
+  const lastScheduledRenderRequestRef = React.useRef(renderRequest)
+  const hasPendingAutoCompareText =
+    settings.autoCompare >= 0 &&
+    (comparedTexts.original !== originalText ||
+      comparedTexts.changed !== changedText)
 
   React.useEffect(() => {
+    if (hasPendingAutoCompareText) {
+      return
+    }
+
+    if (
+      isSameDiffRenderRequest(
+        lastScheduledRenderRequestRef.current,
+        renderRequest
+      )
+    ) {
+      return
+    }
+
+    lastScheduledRenderRequestRef.current = renderRequest
+    renderTokenRef.current += 1
+    const token = renderTokenRef.current
+    let startTimer: ReturnType<typeof setTimeout> | undefined
     let computeTimer: ReturnType<typeof setTimeout> | undefined
 
-    // Defer computation so React can render the skeleton frame first.
-    const loadingTimer = setTimeout(() => {
-      setIsComputing(true)
+    const scheduleTimer = setTimeout(() => {
+      dispatchRender({ type: "schedule", request: renderRequest, token })
 
-      computeTimer = setTimeout(() => {
-        const aligned = computeAlignedDiff(
-          comparedState.original,
-          comparedState.changed,
-          getDiffOptions(comparedState.settings)
-        )
-        const unified = computeUnifiedDiff(
-          comparedState.original,
-          comparedState.changed,
-          getDiffOptions(comparedState.settings)
-        )
-        const sim = computeSimilarity(
-          comparedState.original,
-          comparedState.changed,
-          getDiffOptions(comparedState.settings)
-        )
-        setDiffResult({ alignedLines: aligned, unifiedLines: unified, similarity: sim })
-        setIsComputing(false)
+      startTimer = setTimeout(() => {
+        dispatchRender({ type: "start", token })
+
+        computeTimer = setTimeout(() => {
+          dispatchRender({
+            type: "complete",
+            token,
+            result: buildDiffRenderResult(renderRequest),
+          })
+        }, 0)
       }, 0)
     }, 0)
 
     return () => {
-      clearTimeout(loadingTimer)
+      clearTimeout(scheduleTimer)
+      if (startTimer) {
+        clearTimeout(startTimer)
+      }
       if (computeTimer) {
         clearTimeout(computeTimer)
       }
     }
-  }, [comparedState, getDiffOptions])
+  }, [hasPendingAutoCompareText, renderRequest])
 
-  const { alignedLines, unifiedLines, similarity } = diffResult
+  const isComputing = isDiffRenderPending(
+    renderState,
+    renderRequest,
+    hasPendingAutoCompareText
+  )
+  const { alignedLines, unifiedLines, similarity } = renderState.result
 
   // Swap texts
   const handleSwap = () => {
@@ -387,6 +394,7 @@ export default function DiffChecker() {
     setChangedText("")
     setOriginalFile(null)
     setChangedFile(null)
+    dispatchSettings({ type: "applyPreset", presetId: "none" })
   }
 
   // File Upload Helper
@@ -583,7 +591,7 @@ export default function DiffChecker() {
   const addedCount = unifiedLines.filter((l) => l.type === "added").length
   const removedCount = unifiedLines.filter((l) => l.type === "removed").length
   const totalLines = alignedLines.length
-  const showEnvValueToggle = comparedState.settings.preset === "env"
+  const showEnvValueToggle = settings.preset === "env"
 
   const renderDiffControls = () => (
     <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
@@ -706,7 +714,7 @@ export default function DiffChecker() {
               addedCount={addedCount}
               removedCount={removedCount}
               totalLines={totalLines}
-              keyValueSorted={comparedState.settings.sortKeyValuePairs}
+              keyValueSorted={settings.sortKeyValuePairs}
               isComputing={isComputing}
             >
               {renderDiffControls()}
@@ -720,8 +728,8 @@ export default function DiffChecker() {
               showLineNumbers={settings.showLineNumbers}
               wrapLines={settings.wrapLines}
               scrollLock={settings.scrollLock}
-              originalText={comparedState.original}
-              changedText={comparedState.changed}
+              originalText={renderRequest.original}
+              changedText={renderRequest.changed}
               isComputing={isComputing}
             />
           </div>
@@ -779,7 +787,7 @@ export default function DiffChecker() {
                 addedCount={addedCount}
                 removedCount={removedCount}
                 totalLines={totalLines}
-                keyValueSorted={comparedState.settings.sortKeyValuePairs}
+                keyValueSorted={settings.sortKeyValuePairs}
                 isComputing={isComputing}
               >
                 {renderDiffControls()}
@@ -793,8 +801,8 @@ export default function DiffChecker() {
                 showLineNumbers={settings.showLineNumbers}
                 wrapLines={settings.wrapLines}
                 scrollLock={settings.scrollLock}
-                originalText={comparedState.original}
-                changedText={comparedState.changed}
+                originalText={renderRequest.original}
+                changedText={renderRequest.changed}
                 isComputing={isComputing}
               />
 
