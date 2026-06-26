@@ -485,11 +485,11 @@ export default function DiffChecker() {
   const renderInputPanes = (isCompact: boolean = false) => {
     return (
       <div
-        className={`grid min-h-0 ${isCompact ? "h-[360px] shrink-0 lg:h-[240px]" : "flex-1"} relative grid-cols-1 items-stretch gap-5 lg:grid-cols-2`}
+        className={`grid min-h-0 ${isCompact ? "h-[360px] shrink-0 lg:h-[240px]" : "responsive-pane-container"} relative grid-cols-1 items-stretch gap-5 lg:grid-cols-2`}
       >
         {/* Left Input Pane: Original */}
         <Card
-          className="relative flex min-h-0 flex-1 flex-col gap-0 overflow-hidden border-border/70 bg-card py-0 shadow-xs"
+          className={`relative flex ${isCompact ? "flex-1 min-h-0" : "responsive-editor-card"} flex-col gap-0 overflow-hidden border-border/70 bg-card py-0 shadow-xs`}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, "original")}
         >
@@ -551,7 +551,7 @@ export default function DiffChecker() {
 
         {/* Right Input Pane: Changed */}
         <Card
-          className="relative flex min-h-0 flex-1 flex-col gap-0 overflow-hidden border-border/70 bg-card py-0 shadow-xs"
+          className={`relative flex ${isCompact ? "flex-1 min-h-0" : "responsive-editor-card"} flex-col gap-0 overflow-hidden border-border/70 bg-card py-0 shadow-xs`}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, "changed")}
         >
@@ -634,7 +634,7 @@ export default function DiffChecker() {
   )
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-4 overflow-hidden p-4 md:p-6">
+    <div className="responsive-diff-checker">
       {/* Header Panel */}
       <div className="flex flex-col justify-between gap-4 border-b border-border/80 pb-5 md:flex-row md:items-center">
         <div className="flex flex-col gap-1.5">
@@ -723,10 +723,10 @@ export default function DiffChecker() {
 
       {/* Tabs / Live Layout */}
       {settings.autoCompare >= 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-5">
+        <div className="responsive-layout-container">
           {renderInputPanes(true)}
 
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="responsive-viewer-container">
             {renderPresetRecommendationBanner()}
             {/* Stats Bar with View Switcher */}
             <StatsBar
@@ -755,9 +755,9 @@ export default function DiffChecker() {
           </div>
         </div>
       ) : (
-        <div className="relative w-full flex-1 overflow-hidden">
+        <div className="responsive-slides-container relative w-full">
           <div
-            className="flex h-full w-[200%] transition-transform duration-300 ease-in-out"
+            className="responsive-slides-track"
             style={{
               transform:
                 activeTab === "diff" ? "translateX(-50%)" : "translateX(0%)",
@@ -765,7 +765,7 @@ export default function DiffChecker() {
           >
             {/* Slide 1: Editor */}
             <div
-              className="flex h-full w-1/2 flex-col gap-4 px-1"
+              className="responsive-slide-pane"
               inert={activeTab !== "edit"}
             >
               {renderInputPanes(false)}
@@ -798,7 +798,7 @@ export default function DiffChecker() {
 
             {/* Slide 2: Diff Visualizer */}
             <div
-              className="flex h-full w-1/2 flex-col gap-4 px-1"
+              className="responsive-slide-pane"
               inert={activeTab !== "diff"}
             >
               {renderPresetRecommendationBanner()}
