@@ -1,4 +1,4 @@
-import type { DiffSettings } from "./SettingsPanel"
+import type { DiffSettings } from "./settingsEngine"
 
 export type SettingCategory = "comparison" | "editor" | "behavior"
 
@@ -23,7 +23,7 @@ export type SettingDefinition =
       tooltip?: string
       category: SettingCategory
       type: "select"
-      options: SettingOption<any>[]
+      options: SettingOption<string>[]
     }
   | {
       key: keyof DiffSettings
@@ -95,10 +95,18 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     type: "switch",
   },
   {
-    key: "trimWhitespace",
-    label: "Trim Whitespace",
-    description: "Automatically strip trailing spaces on lines",
-    tooltip: "When enabled, whitespaces at the end of lines are automatically stripped before running the comparison.",
+    key: "trimLeadingWhitespace",
+    label: "Trim Leading Whitespace",
+    description: "Strip spaces and tabs at the start of each line",
+    tooltip: "When enabled, spaces and tabs at the beginning of each line are removed before running the comparison.",
+    category: "comparison",
+    type: "switch",
+  },
+  {
+    key: "trimTrailingWhitespace",
+    label: "Trim Trailing Whitespace",
+    description: "Strip spaces and tabs at the end of each line",
+    tooltip: "When enabled, spaces and tabs at the end of each line are removed before running the comparison.",
     category: "comparison",
     type: "switch",
   },

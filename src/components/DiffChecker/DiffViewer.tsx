@@ -188,7 +188,7 @@ export function DiffViewer({
 
   if (isComputing) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
+      <div className="responsive-diff-viewer flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
         <div className="flex shrink-0 divide-x divide-border border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground">
           <div className="flex w-1/2 items-center px-4 py-1.5">
             <Skeleton className="h-3.5 w-28" />
@@ -222,7 +222,7 @@ export function DiffViewer({
   if (viewMode === "split") {
     const rowWidthClass = wrapLines ? "w-full min-w-0" : "min-w-max"
     return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
+      <div className="responsive-diff-viewer flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
         {/* Table header */}
         <div className="flex shrink-0 divide-x divide-border border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground">
           <div className="flex w-1/2 items-center justify-between px-4 py-1.5">
@@ -359,7 +359,7 @@ export function DiffViewer({
 
   // Unified View
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
+    <div className="responsive-diff-viewer flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs">
       <div className="flex shrink-0 items-center justify-between border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground px-4 py-1.5">
         <div className="flex items-center gap-2">
           <span>Unified View</span>

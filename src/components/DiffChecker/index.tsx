@@ -13,19 +13,27 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Kbd } from "@/components/ui/kbd"
-import { Switch } from "@/components/ui/switch"
-import {
-  SettingsPanel,
-  DEFAULT_SETTINGS,
-  PRESETS,
-  checkPresetStatus,
-} from "./SettingsPanel"
-import type { DiffSettings, PresetType } from "./SettingsPanel"
+import { SettingsPanel } from "./SettingsPanel"
+import { PresetOptionsPopover } from "./PresetOptionsPopover"
+import { hydrateSettings, settingsReducer } from "./settingsEngine"
+import { PRESETS } from "./presets"
+import type {
+  DiffSettings,
+  PresetOptionValue,
+  PresetType,
+} from "./settingsEngine"
 import type { SettingCategory } from "./settingsSchema"
 import { CommandMenu } from "./CommandMenu"
 import { StatsBar } from "./StatsBar"
 import { DiffViewer } from "./DiffViewer"
 import { TextEditor } from "./TextEditor"
+import {
+  buildDiffRenderResult,
+  createDiffRenderState,
+  diffRenderReducer,
+  isDiffRenderPending,
+  isSameDiffRenderRequest,
+} from "./diffRenderEngine"
 import {
   Select,
   SelectContent,
@@ -33,11 +41,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  computeAlignedDiff,
-  computeUnifiedDiff,
-  computeSimilarity,
-} from "@/lib/diffEngine"
 
 const SAMPLE_ORIGINAL = `// Offline Text Diff Checker
 // Paste your original code/text here.
@@ -70,7 +73,13 @@ function isKeyValueFormat(text: string): boolean {
   const lines = text
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l !== "" && !l.startsWith("#") && !l.startsWith("//") && !l.startsWith(";"))
+    .filter(
+      (l) =>
+        l !== "" &&
+        !l.startsWith("#") &&
+        !l.startsWith("//") &&
+        !l.startsWith(";")
+    )
 
   if (lines.length === 0) return false
 
@@ -118,22 +127,19 @@ export default function DiffChecker() {
   } | null>(null)
 
   // Settings
-  const [settings, setSettings] = React.useState<DiffSettings>(() => {
-    const saved = localStorage.getItem("diff_settings")
-    if (saved) {
-      try {
-        return checkPresetStatus({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) })
-      } catch {
-        return DEFAULT_SETTINGS
-      }
-    }
-    return DEFAULT_SETTINGS
-  })
+  const [settings, dispatchSettings] = React.useReducer(
+    settingsReducer,
+    undefined,
+    () => hydrateSettings(localStorage.getItem("diff_settings"))
+  )
 
   // Settings Panel state control
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
-  const [settingsActiveTab, setSettingsActiveTab] = React.useState<SettingCategory>("comparison")
-  const [highlightedSetting, setHighlightedSetting] = React.useState<string | null>(null)
+  const [settingsActiveTab, setSettingsActiveTab] =
+    React.useState<SettingCategory>("comparison")
+  const [highlightedSetting, setHighlightedSetting] = React.useState<
+    string | null
+  >(null)
   const [isCommandMenuOpen, setIsCommandMenuOpen] = React.useState(false)
 
   const handleOpenSettingsPanel = (category: SettingCategory, key: string) => {
@@ -145,28 +151,16 @@ export default function DiffChecker() {
   // Views & tabs
   const [activeTab, setActiveTab] = React.useState<string>("edit")
   const [viewMode, setViewMode] = React.useState<"split" | "unified">("split")
-  const [ignoreEnvValueChanges, setIgnoreEnvValueChanges] = React.useState(false)
 
-  // The actual texts and settings used to compute the visual diff.
-  // This decoupling prevents cascading updates and allows support for manual triggers.
-  const [comparedState, setComparedState] = React.useState<{
+  // Texts selected for the visual diff. Settings remain live render inputs so
+  // preset changes do not leave the viewer showing a stale ready state.
+  const [comparedTexts, setComparedTexts] = React.useState<{
     original: string
     changed: string
-    settings: DiffSettings
   }>(() => ({
     original: originalText,
     changed: changedText,
-    settings,
   }))
-
-  const getDiffOptions = React.useCallback(
-    (baseSettings: DiffSettings) => ({
-      ...baseSettings,
-      ignoreKeyValueValueChanges:
-        baseSettings.preset === "env" && ignoreEnvValueChanges,
-    }),
-    [ignoreEnvValueChanges]
-  )
 
   // Save texts to localStorage
   React.useEffect(() => {
@@ -184,12 +178,11 @@ export default function DiffChecker() {
 
   // Trigger manual compare
   const handleCompare = React.useCallback(() => {
-    setComparedState({
+    setComparedTexts({
       original: originalText,
       changed: changedText,
-      settings,
     })
-  }, [originalText, changedText, settings])
+  }, [originalText, changedText])
 
   // Detect if macOS for keyboard shortcut display
   const isMac = React.useMemo(() => {
@@ -219,31 +212,29 @@ export default function DiffChecker() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [settings.autoCompare, activeTab, handleCompare])
 
-  // Auto-compare logic: when inputs/settings change, update comparedState if autoCompare is on (>= 0)
+  // Auto-compare logic: when inputs change, update compared texts if autoCompare is on (>= 0).
   React.useEffect(() => {
     const delay = settings.autoCompare
     if (delay >= 0) {
       if (delay === 0) {
         const timer = setTimeout(() => {
-          setComparedState({
+          setComparedTexts({
             original: originalText,
             changed: changedText,
-            settings,
           })
         }, 0)
         return () => clearTimeout(timer)
       } else {
         const timer = setTimeout(() => {
-          setComparedState({
+          setComparedTexts({
             original: originalText,
             changed: changedText,
-            settings,
           })
         }, delay)
         return () => clearTimeout(timer)
       }
     }
-  }, [originalText, changedText, settings])
+  }, [originalText, changedText, settings.autoCompare])
 
   // Reset activeTab to "edit" when autoCompare is disabled (-1)
   React.useEffect(() => {
@@ -260,46 +251,51 @@ export default function DiffChecker() {
     return isKeyValueFormat(originalText) || isKeyValueFormat(changedText)
   }, [originalText, changedText])
 
+  const handleSettingChange = (
+    key: keyof DiffSettings,
+    value: DiffSettings[keyof DiffSettings]
+  ) => {
+    dispatchSettings({ type: "updateSetting", key, value })
+  }
+
+  const handleResetSettings = () => {
+    dispatchSettings({ type: "reset" })
+  }
+
   const handleApplyPreset = (presetId: PresetType) => {
-    if (presetId === "none") {
-      setSettings((prev) => ({
-        ...prev,
-        preset: "none",
-      }))
-    } else {
-      const presetConfig = PRESETS[presetId].settings
-      setSettings((prev) =>
-        checkPresetStatus({
-          ...prev,
-          ...presetConfig,
-          preset: presetId,
-        })
-      )
-    }
+    dispatchSettings({ type: "applyPreset", presetId })
+  }
+
+  const handlePresetOptionChange = (key: string, value: PresetOptionValue) => {
+    dispatchSettings({ type: "updatePresetOption", key, value })
   }
 
   const showKeyValBanner =
     settings.autoDetectPresets &&
     isKeyValueDetected &&
     settings.preset !== "env" &&
+    settings.preset !== "custom" &&
     !dismissedKeyValTip
 
   const renderPresetRecommendationBanner = () => {
     if (!showKeyValBanner) return null
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-xs md:text-sm animate-fade-in shrink-0">
+      <div className="animate-fade-in flex shrink-0 items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-xs md:text-sm">
         <div className="flex items-center gap-2.5">
-          <Sparkles className="h-4.5 w-4.5 text-primary shrink-0 animate-pulse" />
+          <Sparkles className="h-4.5 w-4.5 shrink-0 animate-pulse text-primary" />
           <span className="text-muted-foreground">
-            <strong className="text-foreground font-semibold">Environment/Properties format detected.</strong>{" "}
-            Apply the <span className="font-semibold text-primary">.env</span> preset to sort keys and ignore formatting differences?
+            <strong className="font-semibold text-foreground">
+              Environment/Properties format detected.
+            </strong>{" "}
+            Apply the <span className="font-semibold text-primary">.env</span>{" "}
+            preset to sort keys and ignore formatting differences?
           </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 text-xs font-semibold px-2.5 hover:bg-primary/15 hover:text-primary cursor-pointer"
+            className="h-7 cursor-pointer px-2.5 text-xs font-semibold hover:bg-primary/15 hover:text-primary"
             onClick={() => handleApplyPreset("env")}
           >
             Apply Preset
@@ -307,7 +303,7 @@ export default function DiffChecker() {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer rounded-md"
+            className="h-7 w-7 cursor-pointer rounded-md text-muted-foreground hover:text-foreground"
             onClick={() => setDismissedKeyValTip(true)}
             title="Dismiss suggestion"
           >
@@ -318,58 +314,80 @@ export default function DiffChecker() {
     )
   }
 
-  // Deferred diff computation: show skeleton while computing
-  const [isComputing, setIsComputing] = React.useState(false)
-  const [diffResult, setDiffResult] = React.useState<{
-    alignedLines: import("@/lib/diffEngine").AlignedLine[]
-    unifiedLines: import("@/lib/diffEngine").UnifiedLine[]
-    similarity: number
-  }>(() => ({
-    alignedLines: computeAlignedDiff(
-      comparedState.original,
-      comparedState.changed,
-      getDiffOptions(comparedState.settings)
-    ),
-    unifiedLines: computeUnifiedDiff(
-      comparedState.original,
-      comparedState.changed,
-      getDiffOptions(comparedState.settings)
-    ),
-    similarity: computeSimilarity(
-      comparedState.original,
-      comparedState.changed,
-      getDiffOptions(comparedState.settings)
-    ),
-  }))
+  const renderRequest = React.useMemo(
+    () => ({
+      original: comparedTexts.original,
+      changed: comparedTexts.changed,
+      settings,
+    }),
+    [comparedTexts.original, comparedTexts.changed, settings]
+  )
+
+  const [renderState, dispatchRender] = React.useReducer(
+    diffRenderReducer,
+    renderRequest,
+    createDiffRenderState
+  )
+  const renderTokenRef = React.useRef(renderState.token)
+  const lastScheduledRenderRequestRef = React.useRef(renderRequest)
+  const hasPendingAutoCompareText =
+    settings.autoCompare >= 0 &&
+    (comparedTexts.original !== originalText ||
+      comparedTexts.changed !== changedText)
 
   React.useEffect(() => {
-    setIsComputing(true)
+    if (hasPendingAutoCompareText) {
+      return
+    }
 
-    // Defer computation so React can render the skeleton frame first
-    const timer = setTimeout(() => {
-      const aligned = computeAlignedDiff(
-        comparedState.original,
-        comparedState.changed,
-        getDiffOptions(comparedState.settings)
+    if (
+      isSameDiffRenderRequest(
+        lastScheduledRenderRequestRef.current,
+        renderRequest
       )
-      const unified = computeUnifiedDiff(
-        comparedState.original,
-        comparedState.changed,
-        getDiffOptions(comparedState.settings)
-      )
-      const sim = computeSimilarity(
-        comparedState.original,
-        comparedState.changed,
-        getDiffOptions(comparedState.settings)
-      )
-      setDiffResult({ alignedLines: aligned, unifiedLines: unified, similarity: sim })
-      setIsComputing(false)
+    ) {
+      return
+    }
+
+    lastScheduledRenderRequestRef.current = renderRequest
+    renderTokenRef.current += 1
+    const token = renderTokenRef.current
+    let startTimer: ReturnType<typeof setTimeout> | undefined
+    let computeTimer: ReturnType<typeof setTimeout> | undefined
+
+    const scheduleTimer = setTimeout(() => {
+      dispatchRender({ type: "schedule", request: renderRequest, token })
+
+      startTimer = setTimeout(() => {
+        dispatchRender({ type: "start", token })
+
+        computeTimer = setTimeout(() => {
+          dispatchRender({
+            type: "complete",
+            token,
+            result: buildDiffRenderResult(renderRequest),
+          })
+        }, 0)
+      }, 0)
     }, 0)
 
-    return () => clearTimeout(timer)
-  }, [comparedState, getDiffOptions])
+    return () => {
+      clearTimeout(scheduleTimer)
+      if (startTimer) {
+        clearTimeout(startTimer)
+      }
+      if (computeTimer) {
+        clearTimeout(computeTimer)
+      }
+    }
+  }, [hasPendingAutoCompareText, renderRequest])
 
-  const { alignedLines, unifiedLines, similarity } = diffResult
+  const isComputing = isDiffRenderPending(
+    renderState,
+    renderRequest,
+    hasPendingAutoCompareText
+  )
+  const { alignedLines, unifiedLines, similarity } = renderState.result
 
   // Swap texts
   const handleSwap = () => {
@@ -388,6 +406,7 @@ export default function DiffChecker() {
     setChangedText("")
     setOriginalFile(null)
     setChangedFile(null)
+    dispatchSettings({ type: "applyPreset", presetId: "none" })
   }
 
   // File Upload Helper
@@ -465,14 +484,16 @@ export default function DiffChecker() {
   // Render Input Card Panes
   const renderInputPanes = (isCompact: boolean = false) => {
     return (
-      <div className={`grid min-h-0 ${isCompact ? "h-[360px] lg:h-[240px] shrink-0" : "flex-1"} grid-cols-1 items-stretch gap-5 lg:grid-cols-2 relative`}>
+      <div
+        className={`grid min-h-0 ${isCompact ? "h-[360px] shrink-0 lg:h-[240px]" : "responsive-pane-container"} relative grid-cols-1 items-stretch gap-5 lg:grid-cols-2`}
+      >
         {/* Left Input Pane: Original */}
         <Card
-          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs py-0 gap-0"
+          className={`relative flex ${isCompact ? "flex-1 min-h-0" : "responsive-editor-card"} flex-col gap-0 overflow-hidden border-border/70 bg-card py-0 shadow-xs`}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, "original")}
         >
-          <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium shrink-0">
+          <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium">
             <div className="flex items-center gap-2 text-muted-foreground">
               <FileText className="h-4 w-4" />
               <span>Original Text</span>
@@ -520,7 +541,7 @@ export default function DiffChecker() {
           <Button
             variant="outline"
             size="icon"
-            className="h-10 w-10 cursor-pointer rounded-full border border-border bg-background shadow-lg transition-transform duration-200 hover:scale-110 active:scale-95 hover:bg-muted"
+            className="h-10 w-10 cursor-pointer rounded-full border border-border bg-background shadow-lg transition-transform duration-200 hover:scale-110 hover:bg-muted active:scale-95"
             onClick={handleSwap}
             title="Swap contents"
           >
@@ -530,11 +551,11 @@ export default function DiffChecker() {
 
         {/* Right Input Pane: Changed */}
         <Card
-          className="relative flex min-h-0 flex-1 flex-col overflow-hidden border-border/70 bg-card shadow-xs py-0 gap-0"
+          className={`relative flex ${isCompact ? "flex-1 min-h-0" : "responsive-editor-card"} flex-col gap-0 overflow-hidden border-border/70 bg-card py-0 shadow-xs`}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, "changed")}
         >
-          <div className="flex items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium shrink-0">
+          <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-muted/40 px-4 py-3 text-xs font-medium">
             <div className="flex items-center gap-2 text-muted-foreground">
               <FileText className="h-4 w-4" />
               <span>Changed Text</span>
@@ -584,21 +605,13 @@ export default function DiffChecker() {
   const addedCount = unifiedLines.filter((l) => l.type === "added").length
   const removedCount = unifiedLines.filter((l) => l.type === "removed").length
   const totalLines = alignedLines.length
-  const showEnvValueToggle = comparedState.settings.preset === "env"
 
   const renderDiffControls = () => (
     <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
-      {showEnvValueToggle && (
-        <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-xs font-semibold shadow-xs">
-          <Switch
-            size="sm"
-            checked={ignoreEnvValueChanges}
-            onCheckedChange={setIgnoreEnvValueChanges}
-            aria-label="Ignore .env value changes"
-          />
-          <span className="text-muted-foreground">Ignore values</span>
-        </label>
-      )}
+      <PresetOptionsPopover
+        settings={settings}
+        onPresetOptionChange={handlePresetOptionChange}
+      />
       <div className="flex items-center gap-1 rounded-lg border border-border bg-background p-1 shadow-xs">
         <Button
           variant={viewMode === "split" ? "secondary" : "ghost"}
@@ -621,12 +634,16 @@ export default function DiffChecker() {
   )
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-4 overflow-hidden p-4 md:p-6">
+    <div className="responsive-diff-checker">
       {/* Header Panel */}
       <div className="flex flex-col justify-between gap-4 border-b border-border/80 pb-5 md:flex-row md:items-center">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <img src="/juxta.svg" alt="Juxta Logo" className="h-9 w-9 select-none object-contain" />
+            <img
+              src="/juxta.svg"
+              alt="Juxta Logo"
+              className="h-9 w-9 object-contain select-none"
+            />
             <h1 className="bg-gradient-to-r from-foreground via-foreground/90 to-muted-foreground bg-clip-text text-2xl font-bold tracking-tight text-transparent">
               Juxta
             </h1>
@@ -642,10 +659,22 @@ export default function DiffChecker() {
             value={settings.preset}
             onValueChange={(val) => handleApplyPreset(val as PresetType)}
           >
-            <SelectTrigger className="w-[150px] h-9 cursor-pointer text-xs font-semibold border-border bg-background shadow-xs">
-              <SelectValue placeholder="Preset: None" />
+            <SelectTrigger className="h-9 w-auto min-w-[150px] max-w-[240px] cursor-pointer border-border bg-background text-xs font-semibold shadow-xs">
+              <span className="flex items-center gap-1.5 min-w-0 mr-1">
+                <SelectValue placeholder="Preset: None" />
+                {settings.preset === "custom" && (
+                  <span className="animate-fade-in select-none shrink-0 inline-flex items-center rounded-xs border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    Modified
+                  </span>
+                )}
+              </span>
             </SelectTrigger>
             <SelectContent>
+              {settings.preset === "custom" && settings.presetState && (
+                <SelectItem value="custom" disabled className="text-xs">
+                  Preset: {PRESETS[settings.presetState.id]?.label ?? "Custom"}
+                </SelectItem>
+              )}
               <SelectItem value="none" className="cursor-pointer text-xs">
                 Preset: None
               </SelectItem>
@@ -663,14 +692,15 @@ export default function DiffChecker() {
           >
             <Search className="h-4 w-4" />
             <span>Search</span>
-            <Kbd className="ml-0.5 text-[10px] scale-90 border-muted-foreground/30 bg-muted/50 text-muted-foreground select-none">
+            <Kbd className="ml-0.5 scale-90 border-muted-foreground/30 bg-muted/50 text-[10px] text-muted-foreground select-none">
               {isMac ? "⌘" : "Ctrl"}K
             </Kbd>
           </Button>
 
           <SettingsPanel
             settings={settings}
-            onSettingsChange={setSettings}
+            onSettingChange={handleSettingChange}
+            onResetSettings={handleResetSettings}
             isOpen={isSettingsOpen}
             onOpenChange={setIsSettingsOpen}
             activeTab={settingsActiveTab}
@@ -688,17 +718,15 @@ export default function DiffChecker() {
             <Trash2 className="h-4 w-4" />
             Clear
           </Button>
-
-
         </div>
       </div>
 
       {/* Tabs / Live Layout */}
       {settings.autoCompare >= 0 ? (
-        <div className="flex min-h-0 flex-1 flex-col gap-5">
+        <div className="responsive-layout-container">
           {renderInputPanes(true)}
-          
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
+
+          <div className="responsive-viewer-container">
             {renderPresetRecommendationBanner()}
             {/* Stats Bar with View Switcher */}
             <StatsBar
@@ -706,7 +734,7 @@ export default function DiffChecker() {
               addedCount={addedCount}
               removedCount={removedCount}
               totalLines={totalLines}
-              keyValueSorted={comparedState.settings.sortKeyValuePairs}
+              keyValueSorted={settings.sortKeyValuePairs}
               isComputing={isComputing}
             >
               {renderDiffControls()}
@@ -720,23 +748,24 @@ export default function DiffChecker() {
               showLineNumbers={settings.showLineNumbers}
               wrapLines={settings.wrapLines}
               scrollLock={settings.scrollLock}
-              originalText={comparedState.original}
-              changedText={comparedState.changed}
+              originalText={renderRequest.original}
+              changedText={renderRequest.changed}
               isComputing={isComputing}
             />
           </div>
         </div>
       ) : (
-        <div className="relative w-full flex-1 overflow-hidden">
+        <div className="responsive-slides-container relative w-full">
           <div
-            className="flex h-full w-[200%] transition-transform duration-300 ease-in-out"
+            className="responsive-slides-track"
             style={{
-              transform: activeTab === "diff" ? "translateX(-50%)" : "translateX(0%)",
+              transform:
+                activeTab === "diff" ? "translateX(-50%)" : "translateX(0%)",
             }}
           >
             {/* Slide 1: Editor */}
             <div
-              className="flex h-full w-1/2 flex-col gap-4 px-1"
+              className="responsive-slide-pane"
               inert={activeTab !== "edit"}
             >
               {renderInputPanes(false)}
@@ -769,7 +798,7 @@ export default function DiffChecker() {
 
             {/* Slide 2: Diff Visualizer */}
             <div
-              className="flex h-full w-1/2 flex-col gap-4 px-1"
+              className="responsive-slide-pane"
               inert={activeTab !== "diff"}
             >
               {renderPresetRecommendationBanner()}
@@ -779,7 +808,7 @@ export default function DiffChecker() {
                 addedCount={addedCount}
                 removedCount={removedCount}
                 totalLines={totalLines}
-                keyValueSorted={comparedState.settings.sortKeyValuePairs}
+                keyValueSorted={settings.sortKeyValuePairs}
                 isComputing={isComputing}
               >
                 {renderDiffControls()}
@@ -793,13 +822,13 @@ export default function DiffChecker() {
                 showLineNumbers={settings.showLineNumbers}
                 wrapLines={settings.wrapLines}
                 scrollLock={settings.scrollLock}
-                originalText={comparedState.original}
-                changedText={comparedState.changed}
+                originalText={renderRequest.original}
+                changedText={renderRequest.changed}
                 isComputing={isComputing}
               />
 
               {/* Bottom Action Controls */}
-              <div className="flex items-center justify-between gap-3 shrink-0 mt-1">
+              <div className="mt-1 flex shrink-0 items-center justify-between gap-3">
                 <Button
                   size="lg"
                   onClick={() => setActiveTab("edit")}
@@ -825,13 +854,14 @@ export default function DiffChecker() {
         open={isCommandMenuOpen}
         onOpenChange={setIsCommandMenuOpen}
         settings={settings}
-        onSettingsChange={setSettings}
+        onSettingChange={handleSettingChange}
+        onPresetOptionChange={handlePresetOptionChange}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onClearAll={handleClearAll}
         onSwap={handleSwap}
         onOpenSettingsPanel={handleOpenSettingsPanel}
-        onResetSettings={() => setSettings(DEFAULT_SETTINGS)}
+        onResetSettings={handleResetSettings}
       />
     </div>
   )

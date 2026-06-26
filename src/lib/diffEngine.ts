@@ -4,7 +4,8 @@ import type { Change } from "diff"
 export interface DiffEngineOptions {
   caseSensitive: boolean
   whitespaceSensitive: boolean
-  trimWhitespace: boolean
+  trimLeadingWhitespace: boolean
+  trimTrailingWhitespace: boolean
   lineEndingSensitive: boolean
   ignoreLastLineNewline: boolean
   inlineDiffMode: "char" | "word" | "none"
@@ -514,10 +515,19 @@ function preprocessText(text: string, options: DiffEngineOptions): string {
   }
 
   // Trim spaces on each line if enabled
-  if (options.trimWhitespace) {
+  if (options.trimLeadingWhitespace || options.trimTrailingWhitespace) {
     processed = processed
       .split("\n")
-      .map((line) => line.trimEnd())
+      .map((line) => {
+        let trimmed = line
+        if (options.trimLeadingWhitespace) {
+          trimmed = trimmed.trimStart()
+        }
+        if (options.trimTrailingWhitespace) {
+          trimmed = trimmed.trimEnd()
+        }
+        return trimmed
+      })
       .join("\n")
   }
 

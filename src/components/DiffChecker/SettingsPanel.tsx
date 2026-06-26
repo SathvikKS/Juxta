@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import React from "react"
 import { Settings, RotateCcw, HelpCircle } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
@@ -29,90 +28,17 @@ import { useTheme } from "@/components/theme-provider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SETTINGS_SCHEMA, SETTINGS_CATEGORIES } from "./settingsSchema"
+import { PRESETS } from "./presets"
 import type { SettingCategory, SettingDefinition } from "./settingsSchema"
-
-export type PresetType = "none" | "env"
-
-export interface PresetDefinition {
-  id: PresetType
-  label: string
-  settings: Partial<DiffSettings>
-}
-
-export const PRESETS: Record<PresetType, PresetDefinition> = {
-  none: {
-    id: "none",
-    label: "None (Custom)",
-    settings: {},
-  },
-  env: {
-    id: "env",
-    label: ".env",
-    settings: {
-      sortKeyValuePairs: true,
-      ignoreEmptyLines: true,
-      ignoreComments: true,
-      whitespaceSensitive: false,
-      trimWhitespace: true,
-      lineEndingSensitive: false,
-    },
-  },
-}
-
-export interface DiffSettings {
-  sortKeyValuePairs: boolean
-  ignoreEmptyLines: boolean
-  ignoreComments: boolean
-  caseSensitive: boolean
-  whitespaceSensitive: boolean
-  trimWhitespace: boolean
-  lineEndingSensitive: boolean
-  ignoreLastLineNewline: boolean
-  inlineDiffMode: "char" | "word" | "none"
-  autoCompare: number
-  showLineNumbers: boolean
-  wrapLines: boolean
-  scrollLock: boolean
-  disableSpellCheck: boolean
-  preset: PresetType
-  autoDetectPresets: boolean
-}
-
-export const DEFAULT_SETTINGS: DiffSettings = {
-  sortKeyValuePairs: false,
-  ignoreEmptyLines: false,
-  ignoreComments: false,
-  caseSensitive: true,
-  whitespaceSensitive: true,
-  trimWhitespace: false,
-  lineEndingSensitive: false,
-  ignoreLastLineNewline: false,
-  inlineDiffMode: "word",
-  autoCompare: -1,
-  showLineNumbers: true,
-  wrapLines: true,
-  scrollLock: true,
-  disableSpellCheck: true,
-  preset: "none",
-  autoDetectPresets: true,
-}
-
-export function checkPresetStatus(settings: DiffSettings): DiffSettings {
-  const envSettings = PRESETS.env.settings
-  const matchesEnv = Object.entries(envSettings).every(
-    ([key, val]) => settings[key as keyof DiffSettings] === val
-  )
-
-  const expectedPreset = matchesEnv ? "env" : "none"
-  if (settings.preset !== expectedPreset) {
-    return { ...settings, preset: expectedPreset }
-  }
-  return settings
-}
+import type { DiffSettings } from "./settingsEngine"
 
 interface SettingsPanelProps {
   settings: DiffSettings
-  onSettingsChange: (settings: DiffSettings) => void
+  onSettingChange: (
+    key: keyof DiffSettings,
+    value: DiffSettings[keyof DiffSettings]
+  ) => void
+  onResetSettings: () => void
   isOpen: boolean
   onOpenChange: (open: boolean) => void
   activeTab: SettingCategory
@@ -123,7 +49,8 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({
   settings,
-  onSettingsChange,
+  onSettingChange,
+  onResetSettings,
   isOpen,
   onOpenChange,
   activeTab,
@@ -137,16 +64,11 @@ export function SettingsPanel({
     key: K,
     value: DiffSettings[K]
   ) => {
-    onSettingsChange(
-      checkPresetStatus({
-        ...settings,
-        [key]: value,
-      })
-    )
+    onSettingChange(key, value)
   }
 
   const handleReset = () => {
-    onSettingsChange(DEFAULT_SETTINGS)
+    onResetSettings()
   }
 
   // Automatically clear highlights after 2 seconds
@@ -172,6 +94,7 @@ export function SettingsPanel({
 
     const isMandated =
       settings.preset !== "none" &&
+      settings.preset !== "custom" &&
       PRESETS[settings.preset]?.settings &&
       item.key in PRESETS[settings.preset].settings
 
