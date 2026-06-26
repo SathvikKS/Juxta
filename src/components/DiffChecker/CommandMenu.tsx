@@ -222,9 +222,11 @@ export function CommandMenu({
     onSettingChange("preset", presetId)
   }
 
-  const presetEntries = Object.values(PRESETS)
+  const presetEntries = Object.values(PRESETS).filter((p) => p.id !== "custom")
+  const activePresetId =
+    settings.preset === "custom" ? settings.presetState?.id : settings.preset
   const activePreset =
-    settings.preset !== "none" ? PRESETS[settings.preset] : undefined
+    activePresetId && activePresetId !== "none" ? PRESETS[activePresetId] : undefined
   const activePresetOptions = activePreset?.options ?? []
   const activePresetOptionValues = getActivePresetOptions(settings)
 
@@ -384,13 +386,17 @@ export function CommandMenu({
                   {/* Group 2: Presets */}
                   <CommandGroup heading="Presets">
                     {presetEntries.map((preset) => {
-                      const isActive = settings.preset === preset.id
+                      const isPureActive = settings.preset === preset.id
+                      const isModifiedActive =
+                        settings.preset === "custom" &&
+                        settings.presetState?.id === preset.id
+                      const isActive = isPureActive || isModifiedActive
                       const optionCount = preset.options?.length ?? 0
 
                       return (
                         <CommandItem
                           key={preset.id}
-                          value={`Preset ${preset.label} ${preset.id} ${optionCount > 0 ? `${optionCount} options` : "no options"}`}
+                          value={`Preset ${preset.label} ${preset.id} ${optionCount > 0 ? `${optionCount} options` : "no options"}${isModifiedActive ? " modified" : ""}`}
                           onSelect={() => setPreset(preset.id)}
                           className="flex cursor-pointer items-center justify-between rounded-lg! p-2.5 transition-all"
                           data-checked={isActive}
@@ -402,13 +408,20 @@ export function CommandMenu({
                             <div className="flex min-w-0 flex-col">
                               <span className="text-sm font-medium text-foreground">
                                 Preset: {preset.label}
+                                {isModifiedActive && (
+                                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                                    (modified)
+                                  </span>
+                                )}
                               </span>
                               <span className="truncate text-[11px] text-muted-foreground">
                                 {preset.id === "none"
                                   ? "Turn off preset-specific comparison rules"
-                                  : optionCount > 0
-                                    ? `Apply preset rules and unlock ${optionCount} preset option${optionCount === 1 ? "" : "s"}`
-                                    : "Apply preset-specific comparison rules"}
+                                  : isModifiedActive
+                                    ? "Re-apply default preset rules"
+                                    : optionCount > 0
+                                      ? `Apply preset rules and unlock ${optionCount} preset option${optionCount === 1 ? "" : "s"}`
+                                      : "Apply preset-specific comparison rules"}
                               </span>
                             </div>
                           </div>
@@ -468,6 +481,7 @@ export function CommandMenu({
                     {SETTINGS_SCHEMA.map((setting) => {
                       const isMandated =
                         settings.preset !== "none" &&
+                        settings.preset !== "custom" &&
                         PRESETS[settings.preset]?.settings &&
                         setting.key in PRESETS[settings.preset].settings
 

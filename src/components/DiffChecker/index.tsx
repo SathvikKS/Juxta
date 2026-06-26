@@ -16,6 +16,7 @@ import { Kbd } from "@/components/ui/kbd"
 import { SettingsPanel } from "./SettingsPanel"
 import { PresetOptionsPopover } from "./PresetOptionsPopover"
 import { hydrateSettings, settingsReducer } from "./settingsEngine"
+import { PRESETS } from "./presets"
 import type {
   DiffSettings,
   PresetOptionValue,
@@ -273,6 +274,7 @@ export default function DiffChecker() {
     settings.autoDetectPresets &&
     isKeyValueDetected &&
     settings.preset !== "env" &&
+    settings.preset !== "custom" &&
     !dismissedKeyValTip
 
   const renderPresetRecommendationBanner = () => {
@@ -657,10 +659,22 @@ export default function DiffChecker() {
             value={settings.preset}
             onValueChange={(val) => handleApplyPreset(val as PresetType)}
           >
-            <SelectTrigger className="h-9 w-[150px] cursor-pointer border-border bg-background text-xs font-semibold shadow-xs">
-              <SelectValue placeholder="Preset: None" />
+            <SelectTrigger className="h-9 w-auto min-w-[150px] max-w-[240px] cursor-pointer border-border bg-background text-xs font-semibold shadow-xs">
+              <span className="flex items-center gap-1.5 min-w-0 mr-1">
+                <SelectValue placeholder="Preset: None" />
+                {settings.preset === "custom" && (
+                  <span className="animate-fade-in select-none shrink-0 inline-flex items-center rounded-xs border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    Modified
+                  </span>
+                )}
+              </span>
             </SelectTrigger>
             <SelectContent>
+              {settings.preset === "custom" && settings.presetState && (
+                <SelectItem value="custom" disabled className="text-xs">
+                  Preset: {PRESETS[settings.presetState.id]?.label ?? "Custom"}
+                </SelectItem>
+              )}
               <SelectItem value="none" className="cursor-pointer text-xs">
                 Preset: None
               </SelectItem>

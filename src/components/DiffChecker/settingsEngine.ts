@@ -5,9 +5,9 @@ import type {
   PresetOptionValue,
 } from "./presets"
 
-export type PresetType = "none" | "env"
+export type PresetType = "none" | "env" | "custom"
 
-type ActivePresetType = Exclude<PresetType, "none">
+type ActivePresetType = Exclude<PresetType, "none" | "custom">
 
 export interface ActivePresetState {
   id: ActivePresetType
@@ -95,7 +95,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isPresetType(value: unknown): value is PresetType {
   return (
     typeof value === "string" &&
-    Object.prototype.hasOwnProperty.call(PRESETS, value)
+    (value === "custom" || Object.prototype.hasOwnProperty.call(PRESETS, value))
   )
 }
 
@@ -103,6 +103,7 @@ function isActivePresetType(value: unknown): value is ActivePresetType {
   return (
     typeof value === "string" &&
     value !== "none" &&
+    value !== "custom" &&
     Object.prototype.hasOwnProperty.call(PRESETS, value)
   )
 }
@@ -147,11 +148,12 @@ function sanitizePresetOptions(
 }
 
 function presetDefinesOption(settings: DiffSettings, key: string): boolean {
-  if (settings.preset === "none") {
+  const presetId = settings.preset === "custom" ? settings.presetState?.id : settings.preset
+  if (!presetId || presetId === "none") {
     return false
   }
 
-  return getPresetOptionDefinitions(settings.preset).some(
+  return getPresetOptionDefinitions(presetId).some(
     (definition) => definition.key === key
   )
 }
@@ -159,19 +161,21 @@ function presetDefinesOption(settings: DiffSettings, key: string): boolean {
 export function getActivePresetDefinition(
   settings: DiffSettings
 ): PresetDefinition | undefined {
-  if (settings.preset === "none") {
+  const presetId = settings.preset === "custom" ? settings.presetState?.id : settings.preset
+  if (!presetId || presetId === "none") {
     return undefined
   }
 
-  return PRESETS[settings.preset]
+  return PRESETS[presetId]
 }
 
 export function getActivePresetOptions(settings: DiffSettings): PresetOptions {
-  if (settings.preset === "none") {
+  const presetId = settings.preset === "custom" ? settings.presetState?.id : settings.preset
+  if (!presetId || presetId === "none") {
     return {}
   }
 
-  return sanitizePresetOptions(settings.presetState?.options, settings.preset)
+  return sanitizePresetOptions(settings.presetState?.options, presetId)
 }
 
 function isCompatibleSettingValue<K extends PresetControlledSettingKey>(
@@ -199,12 +203,13 @@ function presetControlsKey(
   settings: DiffSettings,
   key: keyof DiffSettings
 ): key is PresetControlledSettingKey {
-  if (settings.preset === "none" || key === "preset" || key === "presetState") {
+  const presetId = settings.preset === "custom" ? settings.presetState?.id : settings.preset
+  if (!presetId || presetId === "none" || key === "preset" || key === "presetState") {
     return false
   }
 
   return Object.prototype.hasOwnProperty.call(
-    PRESETS[settings.preset].settings,
+    PRESETS[presetId].settings,
     key
   )
 }
@@ -213,16 +218,20 @@ function sanitizePresetState(
   value: unknown,
   presetId: PresetType
 ): ActivePresetState | undefined {
-  if (
-    !isActivePresetType(presetId) ||
-    !isRecord(value) ||
-    value.id !== presetId ||
-    !isRecord(value.previousValues)
-  ) {
+  if (!isRecord(value) || !isRecord(value.previousValues)) {
     return undefined
   }
 
-  const presetKeys = new Set(Object.keys(PRESETS[presetId].settings))
+  const originalPresetId = value.id
+  if (!isActivePresetType(originalPresetId)) {
+    return undefined
+  }
+
+  if (presetId !== "custom" && originalPresetId !== presetId) {
+    return undefined
+  }
+
+  const presetKeys = new Set(Object.keys(PRESETS[originalPresetId].settings))
   const previousValues: Partial<DiffSettingData> = {}
 
   for (const [key, previousValue] of Object.entries(value.previousValues)) {
@@ -246,9 +255,9 @@ function sanitizePresetState(
   }
 
   return {
-    id: presetId,
+    id: originalPresetId,
     previousValues,
-    options: sanitizePresetOptions(value.options, presetId),
+    options: sanitizePresetOptions(value.options, originalPresetId),
   }
 }
 
@@ -290,19 +299,21 @@ export function hydrateSettings(rawValue: string | null): DiffSettings {
   if (next.preset !== "none") {
     const presetState = sanitizePresetState(parsed.presetState, next.preset)
     if (presetState) {
-      for (const [key, presetValue] of Object.entries(
-        PRESETS[next.preset].settings
-      ) as [PresetControlledSettingKey, DiffSettingData[PresetControlledSettingKey]][]) {
-        if (
-          !Object.prototype.hasOwnProperty.call(
-            presetState.previousValues,
-            key
-          ) &&
-          next[key] !== presetValue
-        ) {
-          writeSetting(presetState.previousValues, key, next[key])
+      if (next.preset !== "custom") {
+        for (const [key, presetValue] of Object.entries(
+          PRESETS[next.preset].settings
+        ) as [PresetControlledSettingKey, DiffSettingData[PresetControlledSettingKey]][]) {
+          if (
+            !Object.prototype.hasOwnProperty.call(
+              presetState.previousValues,
+              key
+            ) &&
+            next[key] !== presetValue
+          ) {
+            writeSetting(presetState.previousValues, key, next[key])
+          }
+          writeSetting(next, key, presetValue)
         }
-        writeSetting(next, key, presetValue)
       }
       next.presetState = presetState
     } else {
@@ -317,12 +328,8 @@ export function hydrateSettings(rawValue: string | null): DiffSettings {
 }
 
 export function removePreset(settings: DiffSettings): DiffSettings {
-  if (settings.preset === "none") {
-    return clearPreset(settings)
-  }
-
   const presetState = settings.presetState
-  if (!presetState || presetState.id !== settings.preset) {
+  if (!presetState) {
     return clearPreset(settings)
   }
 
@@ -349,7 +356,7 @@ export function applyPreset(
   }
 
   const preset = PRESETS[presetId]
-  const base = settings.preset === "none" ? clearPreset(settings) : removePreset(settings)
+  const base = settings.presetState ? removePreset(settings) : clearPreset(settings)
   const next = { ...base }
   const previousValues: Partial<DiffSettingData> = {}
 
@@ -365,7 +372,7 @@ export function applyPreset(
     ...next,
     preset: presetId,
     presetState: {
-      id: presetId,
+      id: presetId as ActivePresetType,
       previousValues,
       options: getPresetOptionDefaults(presetId),
     },
@@ -377,10 +384,12 @@ export function updatePresetOption(
   key: string,
   value: PresetOptionValue
 ): DiffSettings {
+  const presetId = settings.preset === "custom" ? settings.presetState?.id : settings.preset
   if (
-    settings.preset === "none" ||
+    !presetId ||
+    presetId === "none" ||
     !settings.presetState ||
-    settings.presetState.id !== settings.preset ||
+    settings.presetState.id !== presetId ||
     !presetDefinesOption(settings, key)
   ) {
     return settings
@@ -422,7 +431,10 @@ export function updateSetting<K extends keyof DiffSettings>(
   )
 
   if (didChange && presetControlsKey(settings, key)) {
-    return clearPreset(next)
+    return {
+      ...next,
+      preset: "custom",
+    }
   }
 
   return next

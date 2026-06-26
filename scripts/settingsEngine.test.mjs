@@ -149,14 +149,20 @@ test("preset-only option changes stay in preset state", () => {
   assert.equal(removed.presetState, undefined)
 })
 
-test("manual changes to preset-controlled settings exit preset mode", () => {
+test("manual changes to preset-controlled settings transition to custom preset state and can be unapplied", () => {
   const applied = applyPreset(DEFAULT_SETTINGS, "env")
   const updated = updateSetting(applied, "ignoreComments", false)
 
-  assert.equal(updated.preset, "none")
-  assert.equal(updated.presetState, undefined)
+  assert.equal(updated.preset, "custom")
+  assert.notEqual(updated.presetState, undefined)
   assert.equal(updated.ignoreComments, false)
   assert.equal(updated.sortKeyValuePairs, true)
+
+  const cleared = removePreset(updated)
+  assert.equal(cleared.preset, "none")
+  assert.equal(cleared.presetState, undefined)
+  assert.equal(cleared.ignoreComments, false)
+  assert.equal(cleared.sortKeyValuePairs, false)
 })
 
 test("legacy saved presets hydrate as custom settings", () => {

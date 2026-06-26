@@ -8,6 +8,11 @@ export const PRESETS: Record<PresetType, PresetDefinition> = {
     label: "None",
     settings: {},
   },
+  custom: {
+    id: "custom",
+    label: "Custom",
+    settings: {},
+  },
   env: envPreset,
 }
 

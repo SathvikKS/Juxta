@@ -94,6 +94,7 @@ export function SettingsPanel({
 
     const isMandated =
       settings.preset !== "none" &&
+      settings.preset !== "custom" &&
       PRESETS[settings.preset]?.settings &&
       item.key in PRESETS[settings.preset].settings
 
