@@ -1,3 +1,6 @@
+import { PRESETS } from "./presetDefinitions"
+import type { PresetDefinition } from "./presetDefinitions"
+
 export type PresetType = "none" | "env"
 
 type ActivePresetType = Exclude<PresetType, "none">
@@ -13,7 +16,8 @@ export interface DiffSettings {
   ignoreComments: boolean
   caseSensitive: boolean
   whitespaceSensitive: boolean
-  trimWhitespace: boolean
+  trimLeadingWhitespace: boolean
+  trimTrailingWhitespace: boolean
   lineEndingSensitive: boolean
   ignoreLastLineNewline: boolean
   inlineDiffMode: "char" | "word" | "none"
@@ -31,19 +35,14 @@ export type DiffSettingData = Omit<DiffSettings, "preset" | "presetState">
 export type PresetControlledSettingKey = keyof DiffSettingData
 export type PresetSettings = Partial<DiffSettingData>
 
-export interface PresetDefinition {
-  id: PresetType
-  label: string
-  settings: PresetSettings
-}
-
 export const DEFAULT_SETTINGS: DiffSettings = {
   sortKeyValuePairs: false,
   ignoreEmptyLines: false,
   ignoreComments: false,
   caseSensitive: true,
   whitespaceSensitive: true,
-  trimWhitespace: false,
+  trimLeadingWhitespace: false,
+  trimTrailingWhitespace: false,
   lineEndingSensitive: false,
   ignoreLastLineNewline: false,
   inlineDiffMode: "word",
@@ -56,25 +55,7 @@ export const DEFAULT_SETTINGS: DiffSettings = {
   autoDetectPresets: true,
 }
 
-export const PRESETS: Record<PresetType, PresetDefinition> = {
-  none: {
-    id: "none",
-    label: "None (Custom)",
-    settings: {},
-  },
-  env: {
-    id: "env",
-    label: ".env",
-    settings: {
-      sortKeyValuePairs: true,
-      ignoreEmptyLines: true,
-      ignoreComments: true,
-      whitespaceSensitive: false,
-      trimWhitespace: true,
-      lineEndingSensitive: false,
-    },
-  },
-}
+export type { PresetDefinition }
 
 export type SettingsAction =
   | { type: "applyPreset"; presetId: PresetType }
@@ -176,6 +157,16 @@ function sanitizePresetState(
     }
   }
 
+  if (
+    typeof value.previousValues.trimWhitespace === "boolean" &&
+    !Object.prototype.hasOwnProperty.call(
+      previousValues,
+      "trimTrailingWhitespace"
+    )
+  ) {
+    previousValues.trimTrailingWhitespace = value.previousValues.trimWhitespace
+  }
+
   return {
     id: presetId,
     previousValues,
@@ -211,11 +202,29 @@ export function hydrateSettings(rawValue: string | null): DiffSettings {
     }
   }
 
+  if (typeof parsed.trimWhitespace === "boolean") {
+    next.trimTrailingWhitespace = parsed.trimWhitespace
+  }
+
   next.preset = isPresetType(parsed.preset) ? parsed.preset : "none"
 
   if (next.preset !== "none") {
     const presetState = sanitizePresetState(parsed.presetState, next.preset)
     if (presetState) {
+      for (const [key, presetValue] of Object.entries(
+        PRESETS[next.preset].settings
+      ) as [PresetControlledSettingKey, DiffSettingData[PresetControlledSettingKey]][]) {
+        if (
+          !Object.prototype.hasOwnProperty.call(
+            presetState.previousValues,
+            key
+          ) &&
+          next[key] !== presetValue
+        ) {
+          writeSetting(presetState.previousValues, key, next[key])
+        }
+        writeSetting(next, key, presetValue)
+      }
       next.presetState = presetState
     } else {
       next.preset = "none"

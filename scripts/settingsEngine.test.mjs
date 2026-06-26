@@ -6,31 +6,41 @@ import test from "node:test"
 import { pathToFileURL } from "node:url"
 import ts from "typescript"
 
-const sourcePath = resolve("src/components/DiffChecker/settingsEngine.ts")
 const outDir = join(tmpdir(), "juxta-settings-engine-test")
 const outPath = join(outDir, "settingsEngine.mjs")
+const presetOutPath = join(outDir, "presetDefinitions.mjs")
 
 mkdirSync(outDir, { recursive: true })
 
-const transpiled = ts.transpileModule(readFileSync(sourcePath, "utf8"), {
-  compilerOptions: {
-    module: ts.ModuleKind.ES2022,
-    target: ts.ScriptTarget.ES2023,
-    verbatimModuleSyntax: true,
-  },
-})
+function transpileFile(sourcePath) {
+  return ts.transpileModule(readFileSync(sourcePath, "utf8"), {
+    compilerOptions: {
+      module: ts.ModuleKind.ES2022,
+      target: ts.ScriptTarget.ES2023,
+      verbatimModuleSyntax: true,
+    },
+  }).outputText
+}
 
-writeFileSync(outPath, transpiled.outputText)
+const engineOutput = transpileFile(
+  resolve("src/components/DiffChecker/settingsEngine.ts")
+).replace("./presetDefinitions", "./presetDefinitions.mjs")
+const presetOutput = transpileFile(
+  resolve("src/components/DiffChecker/presetDefinitions.ts")
+)
+
+writeFileSync(outPath, engineOutput)
+writeFileSync(presetOutPath, presetOutput)
 
 const {
   DEFAULT_SETTINGS,
-  PRESETS,
   applyPreset,
   hydrateSettings,
   removePreset,
   settingsReducer,
   updateSetting,
 } = await import(pathToFileURL(outPath).href)
+const { PRESETS } = await import(pathToFileURL(presetOutPath).href)
 
 function withoutPresetState(settings) {
   const copy = { ...settings }
@@ -50,7 +60,8 @@ test("applying a preset records only settings that changed", () => {
     "ignoreComments",
     "ignoreEmptyLines",
     "sortKeyValuePairs",
-    "trimWhitespace",
+    "trimLeadingWhitespace",
+    "trimTrailingWhitespace",
     "whitespaceSensitive",
   ])
   assert.equal(applied.lineEndingSensitive, false)
@@ -114,12 +125,50 @@ test("legacy saved presets hydrate as custom settings", () => {
   assert.equal(hydrated.ignoreComments, true)
 })
 
+test("legacy trimWhitespace hydrates as trailing trim only", () => {
+  const hydrated = hydrateSettings(
+    JSON.stringify({
+      ...DEFAULT_SETTINGS,
+      trimWhitespace: true,
+    })
+  )
+
+  assert.equal(hydrated.trimLeadingWhitespace, false)
+  assert.equal(hydrated.trimTrailingWhitespace, true)
+})
+
 test("saved presets with delta metadata hydrate as active presets", () => {
   const applied = applyPreset(DEFAULT_SETTINGS, "env")
   const hydrated = hydrateSettings(JSON.stringify(applied))
 
   assert.equal(hydrated.preset, "env")
   assert.deepEqual(hydrated.presetState, applied.presetState)
+})
+
+test("legacy active env preset migrates split trim settings", () => {
+  const legacyActivePreset = JSON.stringify({
+    ...DEFAULT_SETTINGS,
+    ...PRESETS.env.settings,
+    trimLeadingWhitespace: undefined,
+    trimTrailingWhitespace: undefined,
+    trimWhitespace: true,
+    preset: "env",
+    presetState: {
+      id: "env",
+      previousValues: {
+        trimWhitespace: false,
+      },
+    },
+  })
+
+  const hydrated = hydrateSettings(legacyActivePreset)
+  const removed = removePreset(hydrated)
+
+  assert.equal(hydrated.preset, "env")
+  assert.equal(hydrated.trimLeadingWhitespace, true)
+  assert.equal(hydrated.trimTrailingWhitespace, true)
+  assert.equal(removed.trimLeadingWhitespace, false)
+  assert.equal(removed.trimTrailingWhitespace, false)
 })
 
 test("sequential reducer actions do not corrupt preset deltas", () => {

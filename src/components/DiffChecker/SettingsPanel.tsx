@@ -28,7 +28,7 @@ import { useTheme } from "@/components/theme-provider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { SETTINGS_SCHEMA, SETTINGS_CATEGORIES } from "./settingsSchema"
-import { PRESETS } from "./settingsEngine"
+import { PRESETS } from "./presetDefinitions"
 import type { SettingCategory, SettingDefinition } from "./settingsSchema"
 import type { DiffSettings } from "./settingsEngine"
 

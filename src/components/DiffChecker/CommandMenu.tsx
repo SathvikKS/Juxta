@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { useTheme } from "@/components/theme-provider"
 import { SETTINGS_SCHEMA } from "./settingsSchema"
-import { PRESETS } from "./settingsEngine"
+import { PRESETS } from "./presetDefinitions"
 import type { DiffSettings } from "./settingsEngine"
 import type { SettingCategory } from "./settingsSchema"
 import {
@@ -101,7 +101,8 @@ function getSettingIcon(key: string) {
       return <Type className="h-4.5 w-4.5 text-sky-500" />
     case "whitespaceSensitive":
       return <Maximize2 className="h-4.5 w-4.5 text-emerald-500" />
-    case "trimWhitespace":
+    case "trimLeadingWhitespace":
+    case "trimTrailingWhitespace":
       return <Scissors className="h-4.5 w-4.5 text-amber-500" />
     case "lineEndingSensitive":
       return <CornerDownLeft className="h-4.5 w-4.5 text-indigo-500" />
