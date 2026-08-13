@@ -1,4 +1,5 @@
 import { envPreset } from "./env"
+import { jsonPreset } from "./json"
 import type { PresetDefinition } from "./types"
 import type { PresetType } from "../settingsEngine"
 
@@ -14,6 +15,7 @@ export const PRESETS: Record<PresetType, PresetDefinition> = {
     settings: {},
   },
   env: envPreset,
+  json: jsonPreset,
 }
 
 export type {
@@ -22,4 +24,6 @@ export type {
   PresetOptionDefinition,
   PresetOptions,
   PresetOptionValue,
+  PresetRenderContext,
+  PresetDetector,
 } from "./types"

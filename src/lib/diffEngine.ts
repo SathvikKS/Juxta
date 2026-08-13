@@ -21,12 +21,14 @@ export interface AlignedLine {
     lineNumber: number | null
     type: "removed" | "normal" | "empty"
     subChanges?: Change[]
+    identity?: string
   }
   right: {
     text: string
     lineNumber: number | null
     type: "added" | "normal" | "empty"
     subChanges?: Change[]
+    identity?: string
   }
 }
 
@@ -36,6 +38,7 @@ export interface UnifiedLine {
   newLineNumber: number | null
   type: "added" | "removed" | "normal"
   subChanges?: Change[]
+  identity?: string
 }
 
 interface KeyValueLine {

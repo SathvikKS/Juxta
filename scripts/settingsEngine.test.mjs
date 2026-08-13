@@ -12,7 +12,9 @@ const presetsOutDir = join(checkerOutDir, "presets")
 const libOutDir = join(outDir, "src/lib")
 const outPath = join(checkerOutDir, "settingsEngine.mjs")
 const presetOutPath = join(presetsOutDir, "index.mjs")
+const jsonPresetOutPath = join(presetsOutDir, "json.mjs")
 const diffEngineOutPath = join(libOutDir, "diffEngine.mjs")
+const jsonDiffOutPath = join(libOutDir, "jsonDiff.mjs")
 const diffRenderOutPath = join(checkerOutDir, "diffRenderEngine.mjs")
 const diffPackageUrl = pathToFileURL(
   resolve("node_modules/diff/libesm/index.js")
@@ -44,9 +46,17 @@ function writeTranspiled(sourcePath, outputPath, replacements = []) {
 writeTranspiled("src/lib/diffEngine.ts", diffEngineOutPath, [
   ['from "diff"', `from "${diffPackageUrl}"`],
 ])
+writeTranspiled("src/lib/jsonDiff.ts", jsonDiffOutPath, [
+  ['from "diff"', `from "${diffPackageUrl}"`],
+  ['from "./diffEngine"', 'from "./diffEngine.mjs"'],
+])
 writeTranspiled("src/components/DiffChecker/presets/env.ts", join(presetsOutDir, "env.mjs"))
+writeTranspiled("src/components/DiffChecker/presets/json.ts", jsonPresetOutPath, [
+  ['from "@/lib/jsonDiff"', 'from "../../../lib/jsonDiff.mjs"'],
+])
 writeTranspiled("src/components/DiffChecker/presets/index.ts", presetOutPath, [
   ['from "./env"', 'from "./env.mjs"'],
+  ['from "./json"', 'from "./json.mjs"'],
 ])
 writeTranspiled("src/components/DiffChecker/settingsEngine.ts", outPath, [
   ['from "./presets"', 'from "./presets/index.mjs"'],
@@ -59,6 +69,7 @@ writeTranspiled("src/components/DiffChecker/diffRenderEngine.ts", diffRenderOutP
 const {
   DEFAULT_SETTINGS,
   applyPreset,
+  getActivePresetDefinition,
   getActivePresetOptions,
   hydrateSettings,
   removePreset,
@@ -67,6 +78,8 @@ const {
   updatePresetOption,
 } = await import(pathToFileURL(outPath).href)
 const { PRESETS } = await import(pathToFileURL(presetOutPath).href)
+const { computeJsonStructuralDiff, parseJsonDocument, traverseJson } =
+  await import(pathToFileURL(jsonDiffOutPath).href)
 const { buildDiffRenderResult } = await import(pathToFileURL(diffRenderOutPath).href)
 
 function withoutPresetState(settings) {
@@ -77,6 +90,32 @@ function withoutPresetState(settings) {
 
 function deltaKeys(settings) {
   return Object.keys(settings.presetState?.previousValues ?? {}).sort()
+}
+
+function jsonSettings(options = {}) {
+  let settings = applyPreset(DEFAULT_SETTINGS, "json")
+  for (const [key, value] of Object.entries(options)) {
+    settings = updatePresetOption(settings, key, value)
+  }
+  return settings
+}
+
+function jsonResult(original, changed, options = {}) {
+  return buildDiffRenderResult({
+    original,
+    changed,
+    settings: jsonSettings(options),
+  })
+}
+
+function allLines(result) {
+  return [...result.alignedLines, ...result.unifiedLines]
+}
+
+function lineTexts(result) {
+  return allLines(result).flatMap((line) =>
+    "text" in line ? [line.text] : [line.left.text, line.right.text]
+  )
 }
 
 test("applying a preset records only settings that changed", () => {
@@ -307,4 +346,239 @@ test("inactive preset-only options do not affect rendering", () => {
   assert.equal(customSettings.preset, "none")
   assert.equal(result.similarity < 100, true)
   assert.equal(result.unifiedLines.some((line) => line.type !== "normal"), true)
+})
+
+test("the harness loads the canonical JSON preset and core renderer", () => {
+  const settings = jsonSettings()
+  const definition = getActivePresetDefinition(settings)
+  const original = '{"user":{"name":"Ada"}}'
+  const changed = '{ "user": { "name": "Ada" } }'
+
+  assert.equal(definition, PRESETS.json)
+  assert.equal(typeof definition?.renderDiff, "function")
+  assert.deepEqual(
+    jsonResult(original, changed),
+    computeJsonStructuralDiff(original, changed, settings, false)
+  )
+})
+
+test("deep JSON traversal exposes readable paths and typed identities", () => {
+  const records = traverseJson({
+    "dotted.key": 0,
+    user: { profile: { name: "Ada" } },
+    tags: ["one", { enabled: true }],
+  })
+  const byPath = new Map(records.map((record) => [record.displayPath, record]))
+
+  assert.equal(byPath.get("$")?.kind, "object")
+  assert.equal(byPath.get('["dotted.key"]')?.text, '["dotted.key"]: 0')
+  assert.equal(byPath.get("user.profile.name")?.text, 'user.profile.name: "Ada"')
+  assert.equal(byPath.get("tags[0]")?.text, 'tags[0]: "one"')
+  assert.equal(byPath.get("tags[1].enabled")?.text, "tags[1].enabled: true")
+  assert.equal(
+    byPath.get('["dotted.key"]')?.identity,
+    JSON.stringify([{ type: "property", key: "dotted.key" }])
+  )
+  assert.equal(
+    byPath.get("tags[0]")?.identity,
+    JSON.stringify([{ type: "property", key: "tags" }, { type: "index", index: 0 }])
+  )
+})
+
+test("dotted keys do not collide with nested paths", () => {
+  const result = jsonResult('{"a.b":1}', '{"a":{"b":2}}')
+  const normalTexts = result.unifiedLines
+    .filter((line) => line.type === "normal")
+    .map((line) => line.text)
+
+  assert.deepEqual(normalTexts, ["$: {}"])
+  assert.equal(result.similarity < 100, true)
+  assert.equal(lineTexts(result).includes('["a.b"]: 1'), true)
+  assert.equal(lineTexts(result).includes("a.b: 2"), true)
+})
+
+test("numeric object keys do not collide with array indexes", () => {
+  const result = jsonResult('{"0":"x"}', '["x"]')
+  const texts = lineTexts(result)
+
+  assert.equal(result.similarity < 100, true)
+  assert.equal(texts.includes('["0"]: "x"'), true)
+  assert.equal(texts.includes('[0]: "x"'), true)
+  assert.equal(result.unifiedLines.some((line) => line.type === "normal"), false)
+})
+
+test("scalar type identity and escaped newlines are preserved", () => {
+  const original = JSON.stringify({ count: 1, message: "line\nnext" })
+  const changed = JSON.stringify({ count: "1", message: "line\nnext" })
+  const result = jsonResult(original, changed)
+  const originalMessage = result.alignedLines.find(
+    (row) => row.left.text === 'message: "line\\nnext"'
+  )
+  const countRow = result.alignedLines.find(
+    (row) => row.left.text === "count: 1" || row.right.text === 'count: "1"'
+  )
+
+  assert.equal(originalMessage?.left.text, 'message: "line\\nnext"')
+  assert.equal(originalMessage?.right.text, 'message: "line\\nnext"')
+  assert.equal(countRow?.left.type, "removed")
+  assert.equal(countRow?.right.type, "added")
+  assert.equal(result.similarity < 100, true)
+})
+
+test("pretty and minified JSON compare equally", () => {
+  const value = { z: [1, 2], a: { enabled: true } }
+  const result = jsonResult(JSON.stringify(value, null, 2), JSON.stringify(value))
+
+  assert.equal(result.similarity, 100)
+  assert.equal(result.alignedLines.every((row) => row.left.type === "normal"), true)
+  assert.equal(result.alignedLines.every((row) => row.right.type === "normal"), true)
+  assert.equal(result.unifiedLines.every((line) => line.type === "normal"), true)
+})
+
+test("object key order is ignored while array order is significant", () => {
+  const objectResult = jsonResult(
+    '{"first":1,"second":{"a":true,"b":false}}',
+    '{"second":{"b":false,"a":true},"first":1}'
+  )
+  const arrayResult = jsonResult(
+    '{"items":["first","second"]}',
+    '{"items":["second","first"]}'
+  )
+
+  assert.equal(objectResult.similarity, 100)
+  assert.equal(objectResult.unifiedLines.every((line) => line.type === "normal"), true)
+  assert.equal(arrayResult.similarity < 100, true)
+  assert.equal(
+    arrayResult.unifiedLines.some(
+      (line) => line.type !== "normal" && line.text === 'items[0]: "first"'
+    ),
+    true
+  )
+  assert.equal(
+    arrayResult.unifiedLines.some(
+      (line) => line.type !== "normal" && line.text === 'items[1]: "second"'
+    ),
+    true
+  )
+})
+
+test("empty object, array, missing property, and null remain distinct", () => {
+  const cases = [
+    ['{"value":{}}', '{"value":[]}'],
+    ['{"value":{}}', '{}'],
+    ['{"value":[]}', '{}'],
+    ['{"value":null}', '{}'],
+    ['{"value":null}', '{"value":{}}'],
+  ]
+
+  for (const [original, changed] of cases) {
+    const result = jsonResult(original, changed)
+    assert.equal(result.similarity < 100, true, `${original} vs ${changed}`)
+    assert.equal(
+      result.unifiedLines.some((line) => line.type !== "normal"),
+      true,
+      `${original} vs ${changed}`
+    )
+  }
+})
+
+test("explicit primitive JSON roots are compared without a text fallback", () => {
+  assert.equal(jsonResult("42", "42").similarity, 100)
+
+  const result = jsonResult("42", '"42"')
+  assert.equal(result.similarity, 0)
+  assert.equal(result.unifiedLines.some((line) => line.text === "$: 42" && line.type === "removed"), true)
+  assert.equal(result.unifiedLines.some((line) => line.text === '$: "42"' && line.type === "added"), true)
+})
+
+test("invalid JSON reports side-specific errors and emits no raw diff", () => {
+  const originalInvalid = jsonResult('{"value":', '{"value":1}')
+  const changedInvalid = jsonResult('{"value":1}', '{"value":')
+
+  assert.equal(typeof originalInvalid.parseErrors?.original, "string")
+  assert.equal(originalInvalid.parseErrors?.changed, null)
+  assert.deepEqual(originalInvalid.alignedLines, [])
+  assert.deepEqual(originalInvalid.unifiedLines, [])
+  assert.equal(lineTexts(originalInvalid).length, 0)
+
+  assert.equal(changedInvalid.parseErrors?.original, null)
+  assert.equal(typeof changedInvalid.parseErrors?.changed, "string")
+  assert.deepEqual(changedInvalid.alignedLines, [])
+  assert.deepEqual(changedInvalid.unifiedLines, [])
+})
+
+test("ignoreValues ignores scalar leaves only and preserves structure", () => {
+  const leafOnly = jsonResult(
+    '{"config":{"port":1},"enabled":true}',
+    '{"config":{"port":2},"enabled":false}',
+    { ignoreValues: true }
+  )
+  const structureChange = jsonResult(
+    '{"config":{"port":1}}',
+    '{"config":[]}',
+    { ignoreValues: true }
+  )
+
+  assert.equal(leafOnly.similarity, 100)
+  assert.equal(leafOnly.unifiedLines.every((line) => line.type === "normal"), true)
+  assert.equal(structureChange.similarity < 100, true)
+  assert.equal(
+    structureChange.unifiedLines.some(
+      (line) => line.type !== "normal" && line.text === "config: {}"
+    ),
+    true
+  )
+  assert.equal(
+    structureChange.unifiedLines.some(
+      (line) => line.type !== "normal" && line.text === "config: []"
+    ),
+    true
+  )
+})
+
+test("showDiffOnly hides matching JSON paths", () => {
+  const result = jsonResult(
+    '{"same":1,"changed":{"value":true}}',
+    '{"same":1,"changed":{"value":false}}',
+    { showDiffOnly: true }
+  )
+
+  assert.equal(result.alignedLines.every((row) => row.left.type !== "normal" || row.right.type !== "normal"), true)
+  assert.equal(result.unifiedLines.every((line) => line.type !== "normal"), true)
+  assert.equal(result.unifiedLines.some((line) => line.text === "changed.value: true"), true)
+  assert.equal(result.unifiedLines.some((line) => line.text === "changed.value: false"), true)
+})
+
+test("JSON and env detectors are checked when callable", () => {
+  const jsonDetector = PRESETS.json.detect
+  assert.equal(typeof jsonDetector, "function")
+  assert.equal(jsonDetector?.('{"value":1}', '{"value":2}'), true)
+  assert.equal(jsonDetector?.('[1]', '[2]'), true)
+  assert.equal(jsonDetector?.("not json", '{"value":2}'), false)
+  assert.equal(jsonDetector?.("1", "2"), false)
+
+  const envDetector = PRESETS.env.detect
+  assert.equal(typeof envDetector, "function")
+  assert.equal(envDetector("A=1", "A=2"), true)
+  assert.equal(envDetector("A=1", "not env"), true)
+  assert.equal(envDetector("not env", "A=1"), true)
+  assert.equal(envDetector('{"A":1}', '{"A":2}'), false)
+})
+
+test("JSON preset apply, option updates, remove, and hydration round-trip", () => {
+  const applied = applyPreset(DEFAULT_SETTINGS, "json")
+  const updated = updatePresetOption(applied, "ignoreValues", true)
+  const hydrated = hydrateSettings(JSON.stringify(updated))
+  const removed = removePreset(hydrated)
+
+  assert.equal(applied.preset, "json")
+  assert.deepEqual(applied.presetState?.previousValues, {})
+  assert.deepEqual(applied.presetState?.options, {
+    ignoreValues: false,
+    showDiffOnly: false,
+  })
+  assert.equal(updated.presetState?.options.ignoreValues, true)
+  assert.equal(hydrated.preset, "json")
+  assert.equal(hydrated.presetState?.options.ignoreValues, true)
+  assert.deepEqual(withoutPresetState(removed), DEFAULT_SETTINGS)
 })

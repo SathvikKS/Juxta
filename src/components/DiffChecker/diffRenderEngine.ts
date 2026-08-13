@@ -20,6 +20,10 @@ export interface DiffRenderResult {
   alignedLines: AlignedLine[]
   unifiedLines: UnifiedLine[]
   similarity: number
+  parseErrors?: {
+    original: string | null
+    changed: string | null
+  } | null
 }
 
 export interface DiffRenderState {
@@ -50,10 +54,16 @@ export function buildDiffRenderResult(
   const options = getDiffOptions(request)
   const activePreset = getActivePresetDefinition(request.settings)
   const presetOptions = getActivePresetOptions(request.settings)
-  const result = {
+  const result = activePreset?.renderDiff?.({
+    original: request.original,
+    changed: request.changed,
+    options,
+    presetOptions,
+  }) ?? {
     alignedLines: computeAlignedDiff(request.original, request.changed, options),
     unifiedLines: computeUnifiedDiff(request.original, request.changed, options),
     similarity: computeSimilarity(request.original, request.changed, options),
+    parseErrors: null,
   }
 
   return activePreset?.filterDiffResult?.(result, presetOptions) ?? result

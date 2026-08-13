@@ -9,6 +9,7 @@ import {
   Sparkles,
   Search,
   X,
+  AlertTriangle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -68,40 +69,59 @@ function greet(user) {
 
 greet({ name: "Alice", displayName: "Ally", role: "admin" });`
 
-function isKeyValueFormat(text: string): boolean {
-  if (!text || text.trim() === "") return false
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(
-      (l) =>
-        l !== "" &&
-        !l.startsWith("#") &&
-        !l.startsWith("//") &&
-        !l.startsWith(";")
-    )
+type DetectablePresetDefinition = (typeof PRESETS)[keyof typeof PRESETS] & {
+  detect?: (original: string, changed: string) => boolean
+}
 
-  if (lines.length === 0) return false
+function isJsonObjectOrArray(text: string): boolean {
+  if (text.trim() === "") return false
 
-  // Check if the text contains JSON/CSS/JS/TS structural indicators to avoid false positives
+  try {
+    const value: unknown = JSON.parse(text)
+    return typeof value === "object" && value !== null
+  } catch {
+    return false
+  }
+}
+
+function canRecommendPreset(
+  preset: DetectablePresetDefinition,
+  original: string,
+  changed: string
+): boolean {
+  if (!preset.detect) return false
+
+  // JSON detection is intentionally strict: a pair of primitive JSON values
+  // is valid JSON, but it is not a structured document preset can improve.
   if (
-    text.includes("{") ||
-    text.includes("}") ||
-    text.includes("const ") ||
-    text.includes("let ") ||
-    text.includes("import ")
+    String(preset.id) === "json" &&
+    (!isJsonObjectOrArray(original) || !isJsonObjectOrArray(changed))
   ) {
     return false
   }
 
-  let matchCount = 0
-  const linesToTest = lines.slice(0, 30)
-  for (const line of linesToTest) {
-    if (/^[A-Za-z0-9_.-]+\s*[=:]/.test(line)) {
-      matchCount++
-    }
+  return preset.detect(original, changed)
+}
+
+function detectPresetRecommendation(
+  original: string,
+  changed: string
+): DetectablePresetDefinition | undefined {
+  const presets = Object.values(PRESETS) as DetectablePresetDefinition[]
+  const jsonPreset = presets.find((preset) => String(preset.id) === "json")
+
+  // JSON is the more specific structured format, so it wins when both a
+  // generic env-like detector and the JSON detector accept the same pair.
+  if (jsonPreset && canRecommendPreset(jsonPreset, original, changed)) {
+    return jsonPreset
   }
-  return matchCount / linesToTest.length > 0.7
+
+  return presets.find(
+    (preset) =>
+      preset.id !== "none" &&
+      preset.id !== "custom" &&
+      canRecommendPreset(preset, original, changed)
+  )
 }
 
 export default function DiffChecker() {
@@ -113,8 +133,10 @@ export default function DiffChecker() {
     return localStorage.getItem("diff_changed_text") ?? SAMPLE_CHANGED
   })
 
-  // Preset dismiss tip state
-  const [dismissedKeyValTip, setDismissedKeyValTip] = React.useState(false)
+  // Preset recommendation dismiss state
+  const [dismissedPresetId, setDismissedPresetId] = React.useState<string | null>(
+    null
+  )
 
   // File names & sizes (if uploaded)
   const [originalFile, setOriginalFile] = React.useState<{
@@ -246,10 +268,12 @@ export default function DiffChecker() {
     }
   }, [settings.autoCompare])
 
-  // Detect if key-value file format is inputted
-  const isKeyValueDetected = React.useMemo(() => {
-    return isKeyValueFormat(originalText) || isKeyValueFormat(changedText)
-  }, [originalText, changedText])
+  // Presets opt into pair-aware detection. The definition receives both
+  // inputs so a recommendation can require a matching format on each side.
+  const recommendedPreset = React.useMemo(
+    () => detectPresetRecommendation(originalText, changedText),
+    [originalText, changedText]
+  )
 
   const handleSettingChange = (
     key: keyof DiffSettings,
@@ -270,25 +294,31 @@ export default function DiffChecker() {
     dispatchSettings({ type: "updatePresetOption", key, value })
   }
 
-  const showKeyValBanner =
+  const activePresetId =
+    settings.preset === "custom" ? settings.presetState?.id : settings.preset
+
+  const showPresetRecommendation =
     settings.autoDetectPresets &&
-    isKeyValueDetected &&
-    settings.preset !== "env" &&
-    settings.preset !== "custom" &&
-    !dismissedKeyValTip
+    recommendedPreset !== undefined &&
+    activePresetId !== recommendedPreset.id &&
+    dismissedPresetId !== recommendedPreset.id
 
   const renderPresetRecommendationBanner = () => {
-    if (!showKeyValBanner) return null
+    if (!showPresetRecommendation || !recommendedPreset) return null
+
     return (
       <div className="animate-fade-in flex shrink-0 items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-xs md:text-sm">
         <div className="flex items-center gap-2.5">
           <Sparkles className="h-4.5 w-4.5 shrink-0 animate-pulse text-primary" />
           <span className="text-muted-foreground">
             <strong className="font-semibold text-foreground">
-              Environment/Properties format detected.
+              {recommendedPreset.label} format detected.
             </strong>{" "}
-            Apply the <span className="font-semibold text-primary">.env</span>{" "}
-            preset to sort keys and ignore formatting differences?
+            Apply the{" "}
+            <span className="font-semibold text-primary">
+              {recommendedPreset.label}
+            </span>{" "}
+            preset for format-aware comparison?
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -296,15 +326,15 @@ export default function DiffChecker() {
             variant="ghost"
             size="sm"
             className="h-7 cursor-pointer px-2.5 text-xs font-semibold hover:bg-primary/15 hover:text-primary"
-            onClick={() => handleApplyPreset("env")}
+            onClick={() => handleApplyPreset(recommendedPreset.id as PresetType)}
           >
-            Apply Preset
+            Apply {recommendedPreset.label}
           </Button>
           <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7 cursor-pointer rounded-md text-muted-foreground hover:text-foreground"
-            onClick={() => setDismissedKeyValTip(true)}
+            onClick={() => setDismissedPresetId(recommendedPreset.id)}
             title="Dismiss suggestion"
           >
             <X className="h-3.5 w-3.5" />
@@ -388,6 +418,54 @@ export default function DiffChecker() {
     hasPendingAutoCompareText
   )
   const { alignedLines, unifiedLines, similarity } = renderState.result
+  const parseErrors = renderState.result.parseErrors
+  const hasParseErrors = Boolean(parseErrors?.original || parseErrors?.changed)
+
+  const renderParseErrorNotice = () => {
+    if (!hasParseErrors) return null
+
+    return (
+      <div
+        className="flex shrink-0 flex-col gap-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-4 text-sm"
+        role="alert"
+      >
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div className="space-y-1">
+            <p className="font-semibold text-foreground">
+              JSON comparison is unavailable.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Fix the invalid JSON input below before comparing these documents.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          {parseErrors?.original && (
+            <div className="rounded-lg border border-destructive/20 bg-background/70 px-3 py-2.5">
+              <p className="mb-1 text-xs font-semibold text-foreground">
+                Original input
+              </p>
+              <p className="break-words font-mono text-xs leading-relaxed text-destructive">
+                {parseErrors.original}
+              </p>
+            </div>
+          )}
+          {parseErrors?.changed && (
+            <div className="rounded-lg border border-destructive/20 bg-background/70 px-3 py-2.5">
+              <p className="mb-1 text-xs font-semibold text-foreground">
+                Changed input
+              </p>
+              <p className="break-words font-mono text-xs leading-relaxed text-destructive">
+                {parseErrors.changed}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   // Swap texts
   const handleSwap = () => {
@@ -670,17 +748,22 @@ export default function DiffChecker() {
               </span>
             </SelectTrigger>
             <SelectContent>
+              {Object.values(PRESETS)
+                .filter((preset) => preset.id !== "custom")
+                .map((preset) => (
+                  <SelectItem
+                    key={preset.id}
+                    value={preset.id}
+                    className="cursor-pointer text-xs"
+                  >
+                    Preset: {preset.label}
+                  </SelectItem>
+                ))}
               {settings.preset === "custom" && settings.presetState && (
                 <SelectItem value="custom" disabled className="text-xs">
                   Preset: {PRESETS[settings.presetState.id]?.label ?? "Custom"}
                 </SelectItem>
               )}
-              <SelectItem value="none" className="cursor-pointer text-xs">
-                Preset: None
-              </SelectItem>
-              <SelectItem value="env" className="cursor-pointer text-xs">
-                Preset: .env
-              </SelectItem>
             </SelectContent>
           </Select>
 
@@ -728,30 +811,35 @@ export default function DiffChecker() {
 
           <div className="responsive-viewer-container">
             {renderPresetRecommendationBanner()}
-            {/* Stats Bar with View Switcher */}
-            <StatsBar
-              similarity={similarity}
-              addedCount={addedCount}
-              removedCount={removedCount}
-              totalLines={totalLines}
-              keyValueSorted={settings.sortKeyValuePairs}
-              isComputing={isComputing}
-            >
-              {renderDiffControls()}
-            </StatsBar>
+            {renderParseErrorNotice()}
+            {!hasParseErrors && (
+              <>
+                {/* Stats Bar with View Switcher */}
+                <StatsBar
+                  similarity={similarity}
+                  addedCount={addedCount}
+                  removedCount={removedCount}
+                  totalLines={totalLines}
+                  keyValueSorted={settings.sortKeyValuePairs}
+                  isComputing={isComputing}
+                >
+                  {renderDiffControls()}
+                </StatsBar>
 
-            {/* Interactive Viewer */}
-            <DiffViewer
-              alignedLines={alignedLines}
-              unifiedLines={unifiedLines}
-              viewMode={viewMode}
-              showLineNumbers={settings.showLineNumbers}
-              wrapLines={settings.wrapLines}
-              scrollLock={settings.scrollLock}
-              originalText={renderRequest.original}
-              changedText={renderRequest.changed}
-              isComputing={isComputing}
-            />
+                {/* Interactive Viewer */}
+                <DiffViewer
+                  alignedLines={alignedLines}
+                  unifiedLines={unifiedLines}
+                  viewMode={viewMode}
+                  showLineNumbers={settings.showLineNumbers}
+                  wrapLines={settings.wrapLines}
+                  scrollLock={settings.scrollLock}
+                  originalText={renderRequest.original}
+                  changedText={renderRequest.changed}
+                  isComputing={isComputing}
+                />
+              </>
+            )}
           </div>
         </div>
       ) : (
@@ -802,30 +890,35 @@ export default function DiffChecker() {
               inert={activeTab !== "diff"}
             >
               {renderPresetRecommendationBanner()}
-              {/* Stats Bar with View Switcher */}
-              <StatsBar
-                similarity={similarity}
-                addedCount={addedCount}
-                removedCount={removedCount}
-                totalLines={totalLines}
-                keyValueSorted={settings.sortKeyValuePairs}
-                isComputing={isComputing}
-              >
-                {renderDiffControls()}
-              </StatsBar>
+              {renderParseErrorNotice()}
+              {!hasParseErrors && (
+                <>
+                  {/* Stats Bar with View Switcher */}
+                  <StatsBar
+                    similarity={similarity}
+                    addedCount={addedCount}
+                    removedCount={removedCount}
+                    totalLines={totalLines}
+                    keyValueSorted={settings.sortKeyValuePairs}
+                    isComputing={isComputing}
+                  >
+                    {renderDiffControls()}
+                  </StatsBar>
 
-              {/* Interactive Viewer */}
-              <DiffViewer
-                alignedLines={alignedLines}
-                unifiedLines={unifiedLines}
-                viewMode={viewMode}
-                showLineNumbers={settings.showLineNumbers}
-                wrapLines={settings.wrapLines}
-                scrollLock={settings.scrollLock}
-                originalText={renderRequest.original}
-                changedText={renderRequest.changed}
-                isComputing={isComputing}
-              />
+                  {/* Interactive Viewer */}
+                  <DiffViewer
+                    alignedLines={alignedLines}
+                    unifiedLines={unifiedLines}
+                    viewMode={viewMode}
+                    showLineNumbers={settings.showLineNumbers}
+                    wrapLines={settings.wrapLines}
+                    scrollLock={settings.scrollLock}
+                    originalText={renderRequest.original}
+                    changedText={renderRequest.changed}
+                    isComputing={isComputing}
+                  />
+                </>
+              )}
 
               {/* Bottom Action Controls */}
               <div className="mt-1 flex shrink-0 items-center justify-between gap-3">
