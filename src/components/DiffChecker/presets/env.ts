@@ -1,8 +1,45 @@
 import type { PresetDefinition } from "./types"
 
+function isKeyValueFormat(text: string): boolean {
+  if (!text || text.trim() === "") return false
+
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(
+      (line) =>
+        line !== "" &&
+        !line.startsWith("#") &&
+        !line.startsWith("//") &&
+        !line.startsWith(";")
+    )
+
+  if (lines.length === 0) return false
+
+  // Avoid treating JSON, CSS, JavaScript, or TypeScript as key-value files.
+  if (
+    text.includes("{") ||
+    text.includes("}") ||
+    text.includes("const ") ||
+    text.includes("let ") ||
+    text.includes("import ")
+  ) {
+    return false
+  }
+
+  const linesToTest = lines.slice(0, 30)
+  const matchCount = linesToTest.filter((line) =>
+    /^[A-Za-z0-9_.-]+\s*[=:]/.test(line)
+  ).length
+
+  return matchCount / linesToTest.length > 0.7
+}
+
 export const envPreset: PresetDefinition = {
   id: "env",
   label: ".env",
+  detect: (original, changed) =>
+    isKeyValueFormat(original) || isKeyValueFormat(changed),
   settings: {
     sortKeyValuePairs: true,
     ignoreEmptyLines: true,

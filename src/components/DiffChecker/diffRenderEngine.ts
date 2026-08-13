@@ -20,6 +20,35 @@ export interface DiffRenderResult {
   alignedLines: AlignedLine[]
   unifiedLines: UnifiedLine[]
   similarity: number
+  parseErrors?: {
+    original: string | null
+    changed: string | null
+  } | null
+}
+
+export interface DiffStats {
+  modifiedCount: number
+  addedCount: number
+  removedCount: number
+  totalRows: number
+}
+
+export function computeDiffStats(alignedLines: AlignedLine[]): DiffStats {
+  return alignedLines.reduce<DiffStats>(
+    (stats, row) => {
+      if (row.left.type === "removed" && row.right.type === "added") {
+        stats.modifiedCount++
+      } else if (row.left.type === "empty" && row.right.type === "added") {
+        stats.addedCount++
+      } else if (row.left.type === "removed" && row.right.type === "empty") {
+        stats.removedCount++
+      }
+
+      stats.totalRows++
+      return stats
+    },
+    { modifiedCount: 0, addedCount: 0, removedCount: 0, totalRows: 0 }
+  )
 }
 
 export interface DiffRenderState {
@@ -50,10 +79,16 @@ export function buildDiffRenderResult(
   const options = getDiffOptions(request)
   const activePreset = getActivePresetDefinition(request.settings)
   const presetOptions = getActivePresetOptions(request.settings)
-  const result = {
+  const result = activePreset?.renderDiff?.({
+    original: request.original,
+    changed: request.changed,
+    options,
+    presetOptions,
+  }) ?? {
     alignedLines: computeAlignedDiff(request.original, request.changed, options),
     unifiedLines: computeUnifiedDiff(request.original, request.changed, options),
     similarity: computeSimilarity(request.original, request.changed, options),
+    parseErrors: null,
   }
 
   return activePreset?.filterDiffResult?.(result, presetOptions) ?? result

@@ -5,7 +5,7 @@ import type {
   PresetOptionValue,
 } from "./presets"
 
-export type PresetType = "none" | "env" | "custom"
+export type PresetType = "none" | "env" | "json" | "custom"
 
 type ActivePresetType = Exclude<PresetType, "none" | "custom">
 
