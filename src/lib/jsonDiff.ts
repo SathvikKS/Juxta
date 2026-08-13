@@ -284,10 +284,12 @@ export function computeJsonStructuralDiff(
     alignedLines,
     unifiedLines,
     similarity:
-      identities.length === 0
+      matchingRecords === identities.length
         ? 100
-        : Math.round((matchingRecords / identities.length) * 100),
+        : Math.min(
+            99,
+            Math.round((matchingRecords / identities.length) * 100)
+          ),
     parseErrors,
   }
 }
-

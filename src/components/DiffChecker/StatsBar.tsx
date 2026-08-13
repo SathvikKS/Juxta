@@ -1,8 +1,9 @@
-import { Check, Plus, Minus, Info } from "lucide-react"
+import { Check, Plus, Minus, Info, Pencil } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface StatsBarProps {
   similarity: number
+  modifiedCount: number
   addedCount: number
   removedCount: number
   totalLines: number
@@ -13,6 +14,7 @@ interface StatsBarProps {
 
 export function StatsBar({
   similarity,
+  modifiedCount,
   addedCount,
   removedCount,
   totalLines,
@@ -54,6 +56,23 @@ export function StatsBar({
                 </span>
               )}
             </>
+          )}
+        </div>
+
+        <div className="hidden h-4 w-px bg-border/80 sm:block" />
+
+        {/* Modifications */}
+        <div className="flex items-center gap-1.5">
+          <span className="rounded-sm bg-amber-500/10 p-0.5 text-amber-500 dark:bg-amber-500/20">
+            <Pencil className="h-3 w-3 stroke-[3]" />
+          </span>
+          <span className="text-muted-foreground">Modifications:</span>
+          {isComputing ? (
+            <Skeleton className="h-4 w-14" />
+          ) : (
+            <span className="font-semibold text-amber-500">
+              {modifiedCount} {modifiedCount === 1 ? "line" : "lines"}
+            </span>
           )}
         </div>
 

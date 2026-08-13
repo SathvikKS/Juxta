@@ -78,9 +78,11 @@ const {
   updatePresetOption,
 } = await import(pathToFileURL(outPath).href)
 const { PRESETS } = await import(pathToFileURL(presetOutPath).href)
+const { computeSimilarity } = await import(pathToFileURL(diffEngineOutPath).href)
 const { computeJsonStructuralDiff, parseJsonDocument, traverseJson } =
   await import(pathToFileURL(jsonDiffOutPath).href)
-const { buildDiffRenderResult } = await import(pathToFileURL(diffRenderOutPath).href)
+const { buildDiffRenderResult, computeDiffStats } =
+  await import(pathToFileURL(diffRenderOutPath).href)
 
 function withoutPresetState(settings) {
   const copy = { ...settings }
@@ -348,6 +350,81 @@ test("inactive preset-only options do not affect rendering", () => {
   assert.equal(result.unifiedLines.some((line) => line.type !== "normal"), true)
 })
 
+test("generic similarity reserves 100 for processed equality", () => {
+  const longPrefix = "a".repeat(1000)
+  const nearEqual = computeSimilarity(
+    `${longPrefix}x`,
+    `${longPrefix}y`,
+    DEFAULT_SETTINGS
+  )
+  const normalizedEqual = computeSimilarity(
+    "Hello world",
+    "hello world",
+    { ...DEFAULT_SETTINGS, caseSensitive: false }
+  )
+
+  assert.equal(nearEqual, 99)
+  assert.equal(normalizedEqual, 100)
+})
+
+test("aligned statistics separate modifications from net additions and deletions", () => {
+  const result = buildDiffRenderResult({
+    original: "same\nold one\nold two\ndeleted",
+    changed: "same\nnew one\nadded",
+    settings: DEFAULT_SETTINGS,
+  })
+
+  assert.deepEqual(computeDiffStats(result.alignedLines), {
+    modifiedCount: 2,
+    addedCount: 0,
+    removedCount: 1,
+    totalRows: 4,
+  })
+  assert.deepEqual(
+    result.unifiedLines.reduce(
+      (counts, line) => {
+        counts[line.type]++
+        return counts
+      },
+      { normal: 0, added: 0, removed: 0 }
+    ),
+    { normal: 1, added: 2, removed: 3 }
+  )
+})
+
+test("env statistics classify keyed value edits separately", () => {
+  const settings = applyPreset(DEFAULT_SETTINGS, "env")
+  const result = buildDiffRenderResult({
+    original: "A=1\nB=2\nREMOVED=1",
+    changed: "A=9\nB=2\nADDED=1",
+    settings,
+  })
+
+  assert.deepEqual(computeDiffStats(result.alignedLines), {
+    modifiedCount: 1,
+    addedCount: 1,
+    removedCount: 1,
+    totalRows: 4,
+  })
+})
+
+test("env ignoreValues similarity stays below 100 for structural changes", () => {
+  const settings = updatePresetOption(
+    applyPreset(DEFAULT_SETTINGS, "env"),
+    "ignoreValues",
+    true
+  )
+  const keys = Array.from({ length: 200 }, (_, index) => `KEY_${index}=${index}`)
+  const result = buildDiffRenderResult({
+    original: keys.join("\n"),
+    changed: [...keys, "ADDED=1"].join("\n"),
+    settings,
+  })
+
+  assert.equal(result.similarity, 99)
+  assert.equal(computeDiffStats(result.alignedLines).addedCount, 1)
+})
+
 test("the harness loads the canonical JSON preset and core renderer", () => {
   const settings = jsonSettings()
   const definition = getActivePresetDefinition(settings)
@@ -534,6 +611,39 @@ test("ignoreValues ignores scalar leaves only and preserves structure", () => {
     ),
     true
   )
+})
+
+test("JSON similarity and statistics preserve structural differences", () => {
+  const shared = Object.fromEntries(
+    Array.from({ length: 220 }, (_, index) => [`key_${index}`, index])
+  )
+  const result = jsonResult(
+    JSON.stringify({ ...shared, changed: 1, removed: true }),
+    JSON.stringify({ ...shared, changed: 2, added: true }),
+    { ignoreValues: true }
+  )
+
+  assert.equal(result.similarity, 99)
+  assert.deepEqual(computeDiffStats(result.alignedLines), {
+    modifiedCount: 0,
+    addedCount: 1,
+    removedCount: 1,
+    totalRows: 224,
+  })
+})
+
+test("JSON value edits count as modifications", () => {
+  const result = jsonResult(
+    '{"same":1,"changed":true,"removed":null}',
+    '{"same":1,"changed":false,"added":null}'
+  )
+
+  assert.deepEqual(computeDiffStats(result.alignedLines), {
+    modifiedCount: 1,
+    addedCount: 1,
+    removedCount: 1,
+    totalRows: 5,
+  })
 })
 
 test("showDiffOnly hides matching JSON paths", () => {

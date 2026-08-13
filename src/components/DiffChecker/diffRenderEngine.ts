@@ -26,6 +26,31 @@ export interface DiffRenderResult {
   } | null
 }
 
+export interface DiffStats {
+  modifiedCount: number
+  addedCount: number
+  removedCount: number
+  totalRows: number
+}
+
+export function computeDiffStats(alignedLines: AlignedLine[]): DiffStats {
+  return alignedLines.reduce<DiffStats>(
+    (stats, row) => {
+      if (row.left.type === "removed" && row.right.type === "added") {
+        stats.modifiedCount++
+      } else if (row.left.type === "empty" && row.right.type === "added") {
+        stats.addedCount++
+      } else if (row.left.type === "removed" && row.right.type === "empty") {
+        stats.removedCount++
+      }
+
+      stats.totalRows++
+      return stats
+    },
+    { modifiedCount: 0, addedCount: 0, removedCount: 0, totalRows: 0 }
+  )
+}
+
 export interface DiffRenderState {
   status: "ready" | "scheduled" | "computing"
   token: number

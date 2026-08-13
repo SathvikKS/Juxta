@@ -30,6 +30,7 @@ import { DiffViewer } from "./DiffViewer"
 import { TextEditor } from "./TextEditor"
 import {
   buildDiffRenderResult,
+  computeDiffStats,
   createDiffRenderState,
   diffRenderReducer,
   isDiffRenderPending,
@@ -680,9 +681,8 @@ export default function DiffChecker() {
   }
 
   // Stats calculation
-  const addedCount = unifiedLines.filter((l) => l.type === "added").length
-  const removedCount = unifiedLines.filter((l) => l.type === "removed").length
-  const totalLines = alignedLines.length
+  const { modifiedCount, addedCount, removedCount, totalRows } =
+    computeDiffStats(alignedLines)
 
   const renderDiffControls = () => (
     <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
@@ -817,9 +817,10 @@ export default function DiffChecker() {
                 {/* Stats Bar with View Switcher */}
                 <StatsBar
                   similarity={similarity}
+                  modifiedCount={modifiedCount}
                   addedCount={addedCount}
                   removedCount={removedCount}
-                  totalLines={totalLines}
+                  totalLines={totalRows}
                   keyValueSorted={settings.sortKeyValuePairs}
                   isComputing={isComputing}
                 >
@@ -896,9 +897,10 @@ export default function DiffChecker() {
                   {/* Stats Bar with View Switcher */}
                   <StatsBar
                     similarity={similarity}
+                    modifiedCount={modifiedCount}
                     addedCount={addedCount}
                     removedCount={removedCount}
-                    totalLines={totalLines}
+                    totalLines={totalRows}
                     keyValueSorted={settings.sortKeyValuePairs}
                     isComputing={isComputing}
                   >

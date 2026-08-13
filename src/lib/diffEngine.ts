@@ -850,7 +850,7 @@ export function computeSimilarity(
   const s1 = options.caseSensitive ? original : original.toLowerCase()
   const s2 = options.caseSensitive ? changed : changed.toLowerCase()
 
-  if (!s1 && !s2) return 100
+  if (s1 === s2) return 100
   if (!s1 || !s2) return 0
 
   const chars = diffChars(s1, s2)
@@ -862,5 +862,8 @@ export function computeSimilarity(
     }
   })
 
-  return Math.round(((2 * commonLen) / (s1.length + s2.length)) * 100)
+  const rounded = Math.round(
+    ((2 * commonLen) / (s1.length + s2.length)) * 100
+  )
+  return Math.min(99, rounded)
 }
